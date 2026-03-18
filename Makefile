@@ -38,5 +38,9 @@ all:
 install:
 	uv sync
 
-.PHONY: help rss fakeddit mmfakebench hemt_fake mediaeval all install
+# Tests
+test:
+	uv run pytest tests/ -v
+
+.PHONY: help rss fakeddit mmfakebench hemt_fake mediaeval all install test
 .DEFAULT_GOAL := help

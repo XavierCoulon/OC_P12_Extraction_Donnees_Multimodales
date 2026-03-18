@@ -13,3 +13,10 @@ dependencies = [
     "tqdm>=4.67",
     "python-dotenv>=1.0",
 ]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-mock>=3.14",
+    "responses>=0.25",
+]
