@@ -2,6 +2,7 @@
 
 import time
 from pathlib import Path
+from urllib.parse import urlparse
 
 import requests
 from PIL import Image, UnidentifiedImageError
@@ -58,6 +59,36 @@ def download_image(url: str, dest_path: Path, timeout: int = IMAGE_DOWNLOAD_TIME
             time.sleep(IMAGE_DOWNLOAD_BACKOFF ** attempt)
 
     return False
+
+
+_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".bmp", ".tiff", ".tif", ".svg"}
+
+
+def is_valid_image_url(url: str) -> bool:
+    """
+    Vérifie qu'une URL pointe vers une image exploitable (format uniquement, sans réseau).
+
+    Critères :
+    - Schéma http ou https
+    - Extension de fichier image reconnue dans le chemin, OU absence d'extension
+      (CDNs et APIs servent souvent des images sans extension)
+    """
+    if not url or not isinstance(url, str):
+        return False
+    try:
+        parsed = urlparse(url.strip())
+    except Exception:
+        return False
+    if parsed.scheme not in ("http", "https"):
+        return False
+    if not parsed.netloc:
+        return False
+    path = parsed.path.lower()
+    if "." in path.split("/")[-1]:
+        ext = "." + path.rsplit(".", 1)[-1].split("?")[0]
+        if ext not in _IMAGE_EXTENSIONS:
+            return False
+    return True
 
 
 def validate_image(path: Path) -> bool:

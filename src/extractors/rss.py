@@ -6,9 +6,9 @@ from urllib.parse import urlparse
 
 import feedparser
 
-from config import IMAGES_DIR, RSS_FEEDS
+from config import RSS_FEEDS
 from src.extractors.base import BaseExtractor
-from src.utils.image import download_image
+from src.utils.image import is_valid_image_url
 
 # Préfixes Snopes pour parser le label depuis le titre
 _SNOPES_LABEL_MAP = {
@@ -88,7 +88,7 @@ class RSSExtractor(BaseExtractor):
         date = raw.get("published", "") or raw.get("updated", "")
         image_url = _extract_image_url(raw)
 
-        if not text or not image_url:
+        if not text or not is_valid_image_url(image_url):
             return None
 
         # Label
@@ -100,12 +100,6 @@ class RSSExtractor(BaseExtractor):
 
         domain = urlparse(url).netloc if url else ""
         entry_id = str(uuid.uuid4())
-        image_path = IMAGES_DIR / "rss" / f"{entry_id}.jpg"
-
-        success = download_image(image_url, image_path)
-        if not success:
-            self.logger.debug("Image inaccessible, entrée ignorée : %s", image_url)
-            return None
 
         return {
             "id": entry_id,
@@ -113,7 +107,7 @@ class RSSExtractor(BaseExtractor):
             "title": title,
             "text": text,
             "image_url": image_url,
-            "image_path": str(image_path),
+            "image_path": "",
             "label": label,
             "label_confidence": "medium",
             "language": feed_config.get("language", "en"),

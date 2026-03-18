@@ -10,9 +10,9 @@ from typing import Iterator
 
 import pandas as pd
 
-from config import FAKEDDIT_RAW_DIR, IMAGES_DIR
+from config import FAKEDDIT_RAW_DIR
 from src.extractors.base import BaseExtractor
-from src.utils.image import download_image
+from src.utils.image import is_valid_image_url
 
 _LABEL_MAP = {0: "fake", 1: "real"}
 
@@ -45,7 +45,7 @@ class FakedditExtractor(BaseExtractor):
         text = str(raw.get("title", "")).strip()
         raw_label = raw.get("2_way_label")
 
-        if not text or not image_url or pd.isna(image_url) or str(image_url).strip() == "":
+        if not text or not is_valid_image_url(str(image_url) if not pd.isna(image_url) else ""):
             return None
 
         # Label : 0 = fake, 1 = real ; exclure non-verifiable (label 6 classes)
@@ -56,12 +56,6 @@ class FakedditExtractor(BaseExtractor):
         label = _LABEL_MAP.get(int(raw_label), "unknown") if not pd.isna(raw_label) else "unknown"
 
         entry_id = str(raw.get("id", uuid.uuid4()))
-        image_path = IMAGES_DIR / "fakeddit" / f"{entry_id}.jpg"
-
-        success = download_image(str(image_url), image_path)
-        if not success:
-            self.logger.debug("Image inaccessible, entrée ignorée : %s", image_url)
-            return None
 
         permalink = raw.get("permalink", "")
         url = f"https://reddit.com{permalink}" if permalink else ""
@@ -74,7 +68,7 @@ class FakedditExtractor(BaseExtractor):
             "title": text,
             "text": text,
             "image_url": str(image_url),
-            "image_path": str(image_path),
+            "image_path": "",
             "label": label,
             "label_confidence": "high",
             "language": "en",

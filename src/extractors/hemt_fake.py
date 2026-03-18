@@ -13,9 +13,9 @@ from urllib.parse import urlparse
 
 import requests
 
-from config import IMAGES_DIR, RAW_DIR
+from config import RAW_DIR
 from src.extractors.base import BaseExtractor
-from src.utils.image import download_image
+from src.utils.image import is_valid_image_url
 
 _ZENODO_URL = "https://zenodo.org/records/11408513/files/HEMT-Fake.zip?download=1"
 _RAW_PATH = RAW_DIR / "hemt_fake" / "HEMT-Fake.zip"
@@ -80,7 +80,7 @@ class HemtFakeExtractor(BaseExtractor):
         language = str(raw.get("language") or "en").lower()
         source_url = str(raw.get("source_url") or raw.get("url") or "")
 
-        if not text or not image_url:
+        if not text or not is_valid_image_url(image_url):
             return None
 
         if label_raw in ("real", "true", "1"):
@@ -91,13 +91,6 @@ class HemtFakeExtractor(BaseExtractor):
             label = "unknown"
 
         entry_id = str(raw.get("id") or uuid.uuid4())
-        image_path = IMAGES_DIR / "hemt_fake" / f"{entry_id}.jpg"
-
-        success = download_image(image_url, image_path)
-        if not success:
-            self.logger.debug("Image inaccessible, entrée ignorée : %s", image_url)
-            return None
-
         domain = urlparse(source_url).netloc if source_url else ""
 
         return {
@@ -106,7 +99,7 @@ class HemtFakeExtractor(BaseExtractor):
             "title": title,
             "text": text,
             "image_url": image_url,
-            "image_path": str(image_path),
+            "image_path": "",
             "label": label,
             "label_confidence": "high",
             "language": language,
