@@ -10,8 +10,11 @@ wheels/
 .venv
 
 # Données brutes et images (volumineuses, non versionnées)
-data/raw/
-data/images/
+data/
+
+# Claude Code (interne, non versionné)
+.claude/
+CLAUDE.md
 
 # Sorties générées
 logs/
