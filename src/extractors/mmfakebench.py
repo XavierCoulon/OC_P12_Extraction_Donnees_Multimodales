@@ -4,21 +4,27 @@ Pré-requis :
 - Avoir un compte HuggingFace et accepté le Data Usage Protocol sur :
   https://huggingface.co/datasets/liuxuannan/MMFakeBench
 - Définir HF_TOKEN dans .env
+
+Champs du dataset :
+  text, image_path, text_source, image_source, gt_answers, fake_cls
+
+Les images restent dans le repo HuggingFace — image_path est une référence
+interne accessible via load_dataset() au moment de l'entraînement.
 """
 
-import io
 import os
 import uuid
 from typing import Iterator
 
 from dotenv import load_dotenv
 
-from config import IMAGES_DIR, MMFAKEBENCH_DATASET_ID
+from config import MMFAKEBENCH_DATASET_ID
 from src.extractors.base import BaseExtractor
 
 load_dotenv()
 
-_LABEL_MAP = {0: "fake", 1: "real"}
+# gt_answers : "True" = contenu authentique, "False" = contenu manipulé
+_LABEL_MAP = {"True": "real", "False": "fake"}
 
 
 class MMFakeBenchExtractor(BaseExtractor):
@@ -50,57 +56,32 @@ class MMFakeBenchExtractor(BaseExtractor):
 
             for split_name, split in dataset.items():
                 self.logger.info("Config '%s' / split '%s' : %d entrées", config_name, split_name, len(split))
-                for row in split:
-                    yield dict(row)
+                yield from (dict(row) for row in split)
 
     def normalize(self, raw: dict) -> dict | None:
-        from PIL import Image
-
-        text = str(raw.get("text") or raw.get("caption") or "").strip()
-        title = str(raw.get("title") or "").strip()
-        raw_label = raw.get("label")
-
+        text = str(raw.get("text") or "").strip()
         if not text:
             return None
 
-        label = _LABEL_MAP.get(int(raw_label), "unknown") if raw_label is not None else "unknown"
-        entry_id = str(raw.get("id") or uuid.uuid4())
-
-        # L'image est un objet PIL intégré dans le dataset HF
-        pil_image = raw.get("image")
-        image_path = IMAGES_DIR / "mmfakebench" / f"{entry_id}.jpg"
-        image_url = str(raw.get("image_url") or "")
-
-        if pil_image is not None:
-            try:
-                image_path.parent.mkdir(parents=True, exist_ok=True)
-                if isinstance(pil_image, Image.Image):
-                    pil_image.convert("RGB").save(image_path, "JPEG")
-                else:
-                    return None
-            except Exception as e:
-                self.logger.debug("Erreur sauvegarde image %s : %s", entry_id, e)
-                return None
-        elif image_url:
-            from src.utils.image import download_image
-            if not download_image(image_url, image_path):
-                self.logger.debug("Image inaccessible, entrée ignorée : %s", image_url)
-                return None
-        else:
+        image_path = str(raw.get("image_path") or "").strip()
+        if not image_path:
             return None
 
+        raw_label = str(raw.get("gt_answers") or "").strip()
+        label = _LABEL_MAP.get(raw_label, "unknown")
+
         return {
-            "id": entry_id,
+            "id": str(uuid.uuid4()),
             "source": self.source_name,
-            "title": title,
+            "title": "",
             "text": text,
-            "image_url": image_url,
-            "image_path": str(image_path),
+            "image_url": "",
+            "image_path": image_path,
             "label": label,
             "label_confidence": "high",
             "language": "en",
-            "date": str(raw.get("date") or ""),
-            "url": str(raw.get("url") or ""),
-            "domain": str(raw.get("source") or ""),
+            "date": "",
+            "url": "",
+            "domain": str(raw.get("text_source") or ""),
             "extraction_method": "dataset",
         }
