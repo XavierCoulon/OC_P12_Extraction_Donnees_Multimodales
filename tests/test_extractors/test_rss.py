@@ -1,7 +1,6 @@
 """Tests pour src/extractors/rss.py."""
 
 import pytest
-from unittest.mock import patch
 
 from src.extractors.rss import RSSExtractor, _parse_snopes_label, _extract_image_url
 
@@ -92,12 +91,10 @@ def _make_raw_rss(
     }
 
 
-def test_rss_normalize_valid_entry(tmp_path):
+def test_rss_normalize_valid_entry():
     extractor = RSSExtractor()
     raw = _make_raw_rss()
-    with patch("src.extractors.rss.download_image", return_value=True), \
-         patch("src.extractors.rss.IMAGES_DIR", tmp_path):
-        result = extractor.normalize(raw)
+    result = extractor.normalize(raw)
 
     assert result is not None
     assert result["label"] == "real"
@@ -105,37 +102,34 @@ def test_rss_normalize_valid_entry(tmp_path):
     assert result["source"] == "rss"
     assert result["extraction_method"] == "rss"
     assert result["language"] == "en"
+    assert result["image_path"] == ""
 
 
-def test_rss_normalize_snopes_auto_label(tmp_path):
+def test_rss_normalize_snopes_auto_label():
     extractor = RSSExtractor()
     raw = _make_raw_rss(title="False: Ce vaccin est dangereux", label="auto")
-    with patch("src.extractors.rss.download_image", return_value=True), \
-         patch("src.extractors.rss.IMAGES_DIR", tmp_path):
-        result = extractor.normalize(raw)
+    result = extractor.normalize(raw)
 
     assert result is not None
     assert result["label"] == "fake"
 
 
-def test_rss_normalize_no_text_returns_none(tmp_path):
+def test_rss_normalize_no_text_returns_none():
     extractor = RSSExtractor()
     raw = _make_raw_rss(text="")
     result = extractor.normalize(raw)
     assert result is None
 
 
-def test_rss_normalize_no_image_url_returns_none(tmp_path):
+def test_rss_normalize_no_image_url_returns_none():
     extractor = RSSExtractor()
     raw = _make_raw_rss(image_url="")
     result = extractor.normalize(raw)
     assert result is None
 
 
-def test_rss_normalize_image_download_fails_returns_none(tmp_path):
+def test_rss_normalize_invalid_image_url_returns_none():
     extractor = RSSExtractor()
-    raw = _make_raw_rss()
-    with patch("src.extractors.rss.download_image", return_value=False), \
-         patch("src.extractors.rss.IMAGES_DIR", tmp_path):
-        result = extractor.normalize(raw)
+    raw = _make_raw_rss(image_url="not-a-valid-url")
+    result = extractor.normalize(raw)
     assert result is None
