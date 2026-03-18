@@ -11,9 +11,8 @@ from urllib.parse import urlparse
 
 import requests
 
-from config import IMAGES_DIR, RAW_DIR
+from config import RAW_DIR
 from src.extractors.base import BaseExtractor
-from src.utils.image import download_image
 
 # Archives disponibles : ajuster selon l'édition souhaitée
 _MEDIAEVAL_URLS = [
@@ -85,13 +84,6 @@ class MediaEvalExtractor(BaseExtractor):
         label = _LABEL_MAP.get(label_raw, "unknown")
 
         entry_id = tweet_id if tweet_id else str(uuid.uuid4())
-        image_path = IMAGES_DIR / "mediaeval" / f"{entry_id}.jpg"
-
-        success = download_image(image_url, image_path)
-        if not success:
-            self.logger.debug("Image inaccessible, entrée ignorée : %s", image_url)
-            return None
-
         url = f"https://twitter.com/i/web/status/{tweet_id}" if tweet_id else ""
 
         return {
@@ -100,7 +92,7 @@ class MediaEvalExtractor(BaseExtractor):
             "title": "",
             "text": text,
             "image_url": image_url,
-            "image_path": str(image_path),
+            "image_path": "",
             "label": label,
             "label_confidence": "high",
             "language": "en",
