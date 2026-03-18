@@ -1,0 +1,85 @@
+"""Extracteur Fakeddit — dataset statique CSV + images.
+
+Pré-requis : télécharger les CSV depuis https://fakeddit.netlify.app/
+et les placer dans data/raw/fakeddit/ avant d'exécuter ce script.
+"""
+
+import uuid
+from pathlib import Path
+from typing import Iterator
+
+import pandas as pd
+
+from config import FAKEDDIT_RAW_DIR, IMAGES_DIR
+from src.extractors.base import BaseExtractor
+from src.utils.image import download_image
+
+_LABEL_MAP = {0: "fake", 1: "real"}
+
+
+class FakedditExtractor(BaseExtractor):
+    source_name = "fakeddit"
+
+    def extract(self) -> Iterator[dict]:
+        csv_files = list(FAKEDDIT_RAW_DIR.glob("*.csv"))
+        if not csv_files:
+            self.logger.error(
+                "Aucun CSV trouvé dans %s. "
+                "Téléchargez les fichiers sur https://fakeddit.netlify.app/",
+                FAKEDDIT_RAW_DIR,
+            )
+            return
+
+        for csv_path in csv_files:
+            self.logger.info("Lecture CSV : %s", csv_path.name)
+            try:
+                df = pd.read_csv(csv_path, low_memory=False)
+                for _, row in df.iterrows():
+                    yield row.to_dict()
+            except Exception as e:
+                self.logger.warning("Erreur lecture %s : %s", csv_path.name, e)
+
+    def normalize(self, raw: dict) -> dict | None:
+        # Champs obligatoires
+        image_url = raw.get("image_url", "")
+        text = str(raw.get("title", "")).strip()
+        raw_label = raw.get("2_way_label")
+
+        if not text or not image_url or pd.isna(image_url) or str(image_url).strip() == "":
+            return None
+
+        # Label : 0 = fake, 1 = real ; exclure non-verifiable (label 6 classes)
+        six_class = str(raw.get("6_way_label", "")).lower()
+        if six_class == "non-verifiable":
+            return None
+
+        label = _LABEL_MAP.get(int(raw_label), "unknown") if not pd.isna(raw_label) else "unknown"
+
+        entry_id = str(raw.get("id", uuid.uuid4()))
+        image_path = IMAGES_DIR / "fakeddit" / f"{entry_id}.jpg"
+
+        success = download_image(str(image_url), image_path)
+        if not success:
+            self.logger.debug("Image inaccessible, entrée ignorée : %s", image_url)
+            return None
+
+        permalink = raw.get("permalink", "")
+        url = f"https://reddit.com{permalink}" if permalink else ""
+        date_raw = raw.get("created_utc", "")
+        date = str(int(date_raw)) if not pd.isna(date_raw) else ""
+
+        return {
+            "id": entry_id,
+            "source": self.source_name,
+            "title": text,
+            "text": text,
+            "image_url": str(image_url),
+            "image_path": str(image_path),
+            "label": label,
+            "label_confidence": "high",
+            "language": "en",
+            "date": date,
+            "url": url,
+            "domain": str(raw.get("domain", "")),
+            "extraction_method": "dataset",
+        }

@@ -1,7 +1,15 @@
 [project]
 name = "oc-p12-extraction-donnees-multimodales"
 version = "0.1.0"
-description = "Add your description here"
+description = "Extraction de données multimodales pour la détection de fake news"
 readme = "README.md"
 requires-python = ">=3.12"
-dependencies = []
+dependencies = [
+    "requests>=2.32",
+    "feedparser>=6.0",
+    "pandas>=2.2",
+    "datasets>=3.0",
+    "Pillow>=11.0",
+    "tqdm>=4.67",
+    "python-dotenv>=1.0",
+]

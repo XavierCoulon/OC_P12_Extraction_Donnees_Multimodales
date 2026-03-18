@@ -8,3 +8,13 @@ wheels/
 
 # Virtual environments
 .venv
+
+# Données brutes et images (volumineuses, non versionnées)
+data/raw/
+data/images/
+
+# Sorties générées
+logs/
+
+# Variables d'environnement
+.env
