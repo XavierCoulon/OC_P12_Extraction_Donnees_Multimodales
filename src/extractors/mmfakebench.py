@@ -39,17 +39,19 @@ class MMFakeBenchExtractor(BaseExtractor):
             self.logger.error("Package 'datasets' non installé. Lancez : uv sync")
             return
 
-        self.logger.info("Chargement dataset HuggingFace : %s", MMFAKEBENCH_DATASET_ID)
-        try:
-            dataset = load_dataset(MMFAKEBENCH_DATASET_ID, token=token, trust_remote_code=False)
-        except Exception as e:
-            self.logger.error("Erreur chargement dataset HF : %s", e)
-            return
+        configs = ["MMFakeBench_val", "MMFakeBench_test"]
+        for config_name in configs:
+            self.logger.info("Chargement dataset HuggingFace : %s / %s", MMFAKEBENCH_DATASET_ID, config_name)
+            try:
+                dataset = load_dataset(MMFAKEBENCH_DATASET_ID, config_name, token=token, trust_remote_code=False)
+            except Exception as e:
+                self.logger.error("Erreur chargement dataset HF (%s) : %s", config_name, e)
+                continue
 
-        for split_name, split in dataset.items():
-            self.logger.info("Split '%s' : %d entrées", split_name, len(split))
-            for row in split:
-                yield dict(row)
+            for split_name, split in dataset.items():
+                self.logger.info("Config '%s' / split '%s' : %d entrées", config_name, split_name, len(split))
+                for row in split:
+                    yield dict(row)
 
     def normalize(self, raw: dict) -> dict | None:
         from PIL import Image
