@@ -32,3 +32,12 @@ FAKEDDIT_RAW_DIR = RAW_DIR / "fakeddit"
 
 # Dataset HuggingFace MMFakeBench
 MMFAKEBENCH_DATASET_ID = "liuxuannan/MMFakeBench"
+
+# Limites d'extraction par défaut (None = pas de limite)
+DEFAULT_LIMITS: dict[str, int | None] = {
+    "mmfakebench": None,    # ~11 000 entrées, dataset annoté de qualité
+    "fakeddit":    10_000,  # dataset massif (>1M), sélection représentative
+    "hemt_fake":   None,    # taille raisonnable, annoté
+    "mediaeval":   None,    # ~1 000 entrées seulement
+    "rss":         500,     # flux live, qualité variable
+}

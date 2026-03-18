@@ -10,6 +10,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from config import DEFAULT_LIMITS
 from src.utils.logger import get_logger
 
 logger = get_logger("main")
@@ -52,7 +53,8 @@ def main() -> None:
         type=int,
         default=None,
         metavar="N",
-        help="Nombre maximum d'entrées valides à extraire par source.",
+        help="Nombre maximum d'entrées valides à extraire (toutes sources). "
+             "Sans cette option, les limites par défaut de config.py s'appliquent.",
     )
     parser.add_argument(
         "--output",
@@ -68,9 +70,10 @@ def main() -> None:
     total_counters = {"total": 0, "success": 0, "skipped": 0, "errors": 0}
 
     for source in sources:
-        logger.info("=== Source : %s ===", source)
+        limit = args.limit if args.limit is not None else DEFAULT_LIMITS.get(source)
+        logger.info("=== Source : %s (limite : %s) ===", source, limit or "aucune")
         try:
-            counters = _run_source(source, args.output, args.limit)
+            counters = _run_source(source, args.output, limit)
             for k in total_counters:
                 total_counters[k] += counters.get(k, 0)
         except Exception as e:
