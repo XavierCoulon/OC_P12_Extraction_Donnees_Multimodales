@@ -36,7 +36,7 @@ class MMFakeBenchExtractor(BaseExtractor):
         try:
             from datasets import load_dataset
         except ImportError:
-            self.logger.error("Package 'datasets' non installé. Lancez : pip install datasets")
+            self.logger.error("Package 'datasets' non installé. Lancez : uv sync")
             return
 
         self.logger.info("Chargement dataset HuggingFace : %s", MMFAKEBENCH_DATASET_ID)
