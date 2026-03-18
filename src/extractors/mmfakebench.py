@@ -20,6 +20,7 @@ from dotenv import load_dotenv
 
 from config import MMFAKEBENCH_DATASET_ID
 from src.extractors.base import BaseExtractor
+from src.utils.image import is_valid_image_url
 
 load_dotenv()
 

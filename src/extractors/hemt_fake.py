@@ -15,6 +15,7 @@ import requests
 
 from config import RAW_DIR
 from src.extractors.base import BaseExtractor
+from src.utils.image import is_valid_image_url
 
 _ZENODO_URL = "https://zenodo.org/records/11408513/files/HEMT-Fake.zip?download=1"
 _RAW_PATH = RAW_DIR / "hemt_fake" / "HEMT-Fake.zip"
@@ -79,7 +80,7 @@ class HemtFakeExtractor(BaseExtractor):
         language = str(raw.get("language") or "en").lower()
         source_url = str(raw.get("source_url") or raw.get("url") or "")
 
-        if not text or not image_url:
+        if not text or not is_valid_image_url(image_url):
             return None
 
         if label_raw in ("real", "true", "1"):

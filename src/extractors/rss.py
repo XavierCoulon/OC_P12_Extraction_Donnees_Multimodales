@@ -8,6 +8,7 @@ import feedparser
 
 from config import RSS_FEEDS
 from src.extractors.base import BaseExtractor
+from src.utils.image import is_valid_image_url
 
 # Préfixes Snopes pour parser le label depuis le titre
 _SNOPES_LABEL_MAP = {
@@ -87,7 +88,7 @@ class RSSExtractor(BaseExtractor):
         date = raw.get("published", "") or raw.get("updated", "")
         image_url = _extract_image_url(raw)
 
-        if not text or not image_url:
+        if not text or not is_valid_image_url(image_url):
             return None
 
         # Label

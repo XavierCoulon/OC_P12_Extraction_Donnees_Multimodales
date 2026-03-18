@@ -13,6 +13,7 @@ import requests
 
 from config import RAW_DIR
 from src.extractors.base import BaseExtractor
+from src.utils.image import is_valid_image_url
 
 # Archives disponibles : ajuster selon l'édition souhaitée
 _MEDIAEVAL_URLS = [
@@ -78,7 +79,7 @@ class MediaEvalExtractor(BaseExtractor):
         label_raw = str(raw.get("label") or "").lower().strip()
         date = str(raw.get("date") or raw.get("tweetDate") or "")
 
-        if not text or not image_url:
+        if not text or not is_valid_image_url(image_url):
             return None
 
         label = _LABEL_MAP.get(label_raw, "unknown")
