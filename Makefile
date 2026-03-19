@@ -4,35 +4,43 @@ LIMIT   ?= 100
 
 help:
 	@echo "Commandes disponibles :"
-	@echo "  make install              Installer les dépendances (uv)"
-	@echo "  make rss [LIMIT=N]        Extraire les flux RSS"
-	@echo "  make fakeddit [LIMIT=N]   Extraire Fakeddit (CSV requis dans data/raw/fakeddit/)"
-	@echo "  make mmfakebench [LIMIT=N] Extraire MMFakeBench (HF_TOKEN requis dans .env)"
-	@echo "  make hemt_fake [LIMIT=N]  Extraire HEMT-Fake (téléchargement auto Zenodo)"
-	@echo "  make mediaeval [LIMIT=N]  Extraire MediaEval VMU (téléchargement auto)"
-	@echo "  make all [LIMIT=N]        Extraire toutes les sources"
+	@echo ""
+	@echo "  Extraction (étape 2)"
+	@echo "  make install                  Installer les dépendances (uv)"
+	@echo "  make extract [LIMIT=N]        Extraire toutes les sources"
+	@echo "  make extract-rss [LIMIT=N]    Extraire les flux RSS"
+	@echo "  make extract-fakeddit [LIMIT=N]    Extraire Fakeddit (CSV requis dans data/raw/fakeddit/)"
+	@echo "  make extract-mmfakebench [LIMIT=N] Extraire MMFakeBench (HF_TOKEN requis dans .env)"
+	@echo "  make extract-miragenews [LIMIT=N]  Extraire MiRAGeNews (téléchargement auto HuggingFace)"
+	@echo "  make extract-mediaeval [LIMIT=N]   Extraire MediaEval VMU (téléchargement auto)"
+	@echo ""
+	@echo "  Transformation (étape 3)"
+	@echo "  make transform                Transformer toutes les sources → Parquet"
+	@echo "  make transform-SOURCE         Transformer une source (ex: make transform-rss)"
+	@echo "  make verify                   Vérifier le Parquet produit"
+	@echo ""
+	@echo "  Qualité"
+	@echo "  make test                     Lancer les tests pytest"
 	@echo ""
 	@echo "  LIMIT : nombre max d'entrées valides par source (défaut: 100)"
-	@echo "  Exemple : make rss LIMIT=500"
+	@echo "  Exemple : make extract-rss LIMIT=500"
 
-# Extraction par source
-rss:
-	$(PYTHON) main.py --source rss --limit $(LIMIT) --output $(OUTPUT)
+# Extraction (étape 2)
+extract:
+	uv run python main.py --source all --limit $(LIMIT) --output $(OUTPUT)
 
-fakeddit:
-	$(PYTHON) main.py --source fakeddit --limit $(LIMIT) --output $(OUTPUT)
+extract-%:
+	uv run python main.py --source $* --limit $(LIMIT) --output $(OUTPUT)
 
-mmfakebench:
-	$(PYTHON) main.py --source mmfakebench --limit $(LIMIT) --output $(OUTPUT)
+# Transformation (étape 3)
+transform:
+	uv run python transform.py --source all
 
-hemt_fake:
-	$(PYTHON) main.py --source hemt_fake --limit $(LIMIT) --output $(OUTPUT)
+transform-%:
+	uv run python transform.py --source $*
 
-mediaeval:
-	$(PYTHON) main.py --source mediaeval --limit $(LIMIT) --output $(OUTPUT)
-
-all:
-	$(PYTHON) main.py --source all --limit $(LIMIT) --output $(OUTPUT)
+verify:
+	uv run python verify.py
 
 # Installation des dépendances
 install:
@@ -42,5 +50,5 @@ install:
 test:
 	uv run pytest tests/ -v
 
-.PHONY: help rss fakeddit mmfakebench hemt_fake mediaeval all install test
+.PHONY: help extract transform verify install test
 .DEFAULT_GOAL := help

@@ -16,11 +16,11 @@ from src.utils.logger import get_logger
 logger = get_logger("main")
 
 EXTRACTORS = {
-    "rss":          ("src.extractors.rss",         "RSSExtractor"),
-    "fakeddit":     ("src.extractors.fakeddit",    "FakedditExtractor"),
-    "mmfakebench":  ("src.extractors.mmfakebench", "MMFakeBenchExtractor"),
-    "hemt_fake":    ("src.extractors.hemt_fake",   "HemtFakeExtractor"),
-    "mediaeval":    ("src.extractors.mediaeval",   "MediaEvalExtractor"),
+    "rss":          ("src.extractors.rss",          "RSSExtractor"),
+    "fakeddit":     ("src.extractors.fakeddit",     "FakedditExtractor"),
+    "mmfakebench":  ("src.extractors.mmfakebench",  "MMFakeBenchExtractor"),
+    "miragenews":   ("src.extractors.miragenews",   "MiRAGeNewsExtractor"),
+    "mediaeval":    ("src.extractors.mediaeval",    "MediaEvalExtractor"),
 }
 
 

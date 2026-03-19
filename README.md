@@ -14,9 +14,9 @@ Système d'extraction automatisée de publications (texte + image) pour entraîn
 |--------|-----------|--------|--------|
 | [Fakeddit](https://fakeddit.netlify.app/) | texte + image | EN | 2/6 classes |
 | [MMFakeBench](https://github.com/liuxuannan/MMFakeBench) | texte + image | EN | vrai/faux |
-| [HEMT-Fake](https://zenodo.org/records/11408513) | texte + image | EN/HI/GU/MR/TE | vrai/faux |
-| [MediaEval VMU](https://multimediaeval.github.io/) | tweet + image | EN | real/fake/non-verifiable |
-| RSS fiables (Le Monde, Reuters, BBC, Snopes) | texte + image | FR/EN | real (implicite) |
+| [MiRAGeNews](https://huggingface.co/datasets/anson-huang/mirage-news) | texte + image | EN | real/fake (image AI-générée) |
+| [MediaEval VMU](https://github.com/MKLab-ITI/image-verification-corpus) | tweet + image (référence locale) | EN | real/fake/non-verifiable |
+| RSS fiables (Le Monde, The Guardian, BBC, Snopes) | texte + image | FR/EN | real (implicite) |
 
 Format de sortie unifié : **JSON Lines** (`.jsonl`)
 
@@ -34,10 +34,10 @@ Scripts Python modulaires pour extraire et normaliser les données de chaque sou
 src/
   extractors/
     base.py           ← BaseExtractor (ABC : extract / normalize / run)
-    fakeddit.py       ← CSV + téléchargement images
-    mmfakebench.py    ← HuggingFace datasets (token requis)
-    hemt_fake.py      ← Zenodo (téléchargement auto)
-    mediaeval.py      ← Archives GitHub MediaEval
+    fakeddit.py       ← CSV manuel + téléchargement images
+    mmfakebench.py    ← HuggingFace datasets (HF_TOKEN requis)
+    miragenews.py     ← HuggingFace datasets (public, sans token)
+    mediaeval.py      ← TSV GitHub MKLab-ITI (téléchargement auto)
     rss.py            ← feedparser multi-sources
   utils/
     image.py          ← Téléchargement + validation images
@@ -50,27 +50,102 @@ main.py               ← CLI (argparse)
 ### Utilisation
 
 ```bash
-make install              # uv sync
-make rss LIMIT=100        # Extraire les flux RSS
-make fakeddit LIMIT=5000  # Extraire Fakeddit (CSV requis dans data/raw/fakeddit/)
-make mmfakebench          # Extraire MMFakeBench (HF_TOKEN dans .env)
-make hemt_fake            # Extraire HEMT-Fake (téléchargement auto Zenodo)
-make mediaeval            # Extraire MediaEval VMU
-make all LIMIT=1000       # Toutes les sources
+make install                        # uv sync
+make extract LIMIT=1000             # Toutes les sources
+make extract-rss LIMIT=100          # Flux RSS uniquement
+make extract-fakeddit LIMIT=5000    # Fakeddit (CSV requis dans data/raw/fakeddit/)
+make extract-mmfakebench            # MMFakeBench (HF_TOKEN dans .env)
+make extract-miragenews             # MiRAGeNews (téléchargement auto HuggingFace)
+make extract-mediaeval              # MediaEval VMU (téléchargement auto)
 ```
 
 Sortie : `data/processed/<source>.jsonl`
 
-### Configuration
+### Prérequis par source
 
-Copier `.env.example` → `.env` et renseigner `HF_TOKEN` (requis uniquement pour MMFakeBench).
+| Source | Prérequis |
+|--------|-----------|
+| **Fakeddit** | Téléchargement manuel requis (voir ci-dessous) |
+| **MMFakeBench** | `HF_TOKEN` dans `.env` (Data Usage Protocol HuggingFace) |
+| **MiRAGeNews** | Aucun — téléchargement automatique HuggingFace |
+| **MediaEval VMU** | Aucun — téléchargement automatique GitHub |
+| **RSS** | Aucun |
+
+#### Fakeddit — téléchargement manuel
+
+1. Aller sur [Google Drive Fakeddit v2.0](https://drive.google.com/drive/folders/1jU7qgDqU1je9Y0PMKJ_f31yXRo5uWGFm)
+2. Télécharger les 3 fichiers du dossier `multimodal_only_samples/` :
+   - `multimodal_train.tsv` (~148 Mo)
+   - `multimodal_validate.tsv` (~16 Mo)
+   - `multimodal_test_public.tsv` (~16 Mo)
+3. Les placer dans `data/raw/fakeddit/`
+4. Lancer : `make extract-fakeddit`
+
+#### MMFakeBench — token HuggingFace
+
+Copier `.env.example` → `.env` et renseigner `HF_TOKEN` :
+1. Créer un token sur [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens)
+2. Accepter le Data Usage Protocol sur [la page du dataset](https://huggingface.co/datasets/liuxuannan/MMFakeBench)
+3. Ajouter `HF_TOKEN=hf_...` dans `.env`
 
 Les flux RSS sont configurables dans `config.py` → `RSS_FEEDS`.
+
+---
+
+## Étape 3 — Pipeline de transformation
+
+**Issue** : [#8](https://github.com/XavierCoulon/OC_P12_Extraction_Donnees_Multimodales/issues/8)
+
+Pipeline Python modulaire qui transforme les données brutes (JSONL) en un dataset consolidé (Parquet) prêt pour l'entraînement de modèles.
+
+### Transformations appliquées
+
+| Étape | Description |
+|-------|-------------|
+| Nettoyage texte | Suppression HTML, normalisation espaces, caractères de contrôle |
+| Normalisation date | RFC 822 / ISO 8601 / UNIX → ISO 8601 unifié |
+| Validation image | `image_valid: bool` — format et schéma URL vérifiés |
+| Association texte-image | `text_image_ok: bool` — texte ET image présents ensemble |
+| Mapping labels | `label_int: int` — real=1, fake=0, unknown=-1 |
+| Enrichissement | `text_length`, `word_count`, `has_image` |
+| Déduplication | Hash MD5 sur (source + texte[:200]), première occurrence conservée |
+
+### Architecture
+
+```
+src/transform/
+  steps/
+    clean_text.py        ← clean_text()
+    normalize_date.py    ← normalize_date()
+    validate_image.py    ← validate_image_fields()
+    check_association.py ← check_text_image_association()
+    map_labels.py        ← map_label()
+    enrich.py            ← enrich()
+    deduplicate.py       ← deduplicate()
+  pipeline.py            ← run_pipeline()
+transform.py             ← CLI
+verify.py                ← Rapport de vérification
+docs/schema_donnees.md   ← Schéma conceptuel Mermaid
+```
+
+### Utilisation
+
+```bash
+make transform            # Transformer toutes les sources
+make transform-rss        # Transformer une source spécifique
+make verify               # Vérifier le Parquet produit
+```
+
+Sortie : `data/processed/transformed.parquet`
+
+### Schéma conceptuel
+
+Voir [`docs/schema_donnees.md`](docs/schema_donnees.md) pour le modèle conceptuel des données (champs, types, rôles IA).
 
 ---
 
 ## Stack
 
 - Python 3.12
-- `requests`, `feedparser`, `pandas`, `datasets`, `Pillow`, `tqdm`, `python-dotenv`
+- `requests`, `feedparser`, `pandas`, `datasets`, `Pillow`, `pyarrow`, `tqdm`, `python-dotenv`
 - `uv` pour la gestion des dépendances

@@ -23,7 +23,7 @@ IMAGE_DOWNLOAD_BACKOFF = 2.0      # facteur de backoff exponentiel
 RSS_FEEDS = [
     {"url": "https://www.lemonde.fr/rss/une.xml",           "language": "fr", "label": "real"},
     {"url": "http://feeds.bbci.co.uk/news/rss.xml",          "language": "en", "label": "real"},
-    {"url": "https://feeds.reuters.com/reuters/topNews",      "language": "en", "label": "real"},
+    {"url": "https://www.theguardian.com/world/rss",           "language": "en", "label": "real"},
     {"url": "https://www.snopes.com/feed/",                   "language": "en", "label": "auto"},
 ]
 
@@ -33,11 +33,14 @@ FAKEDDIT_RAW_DIR = RAW_DIR / "fakeddit"
 # Dataset HuggingFace MMFakeBench
 MMFAKEBENCH_DATASET_ID = "liuxuannan/MMFakeBench"
 
+# Dataset HuggingFace MiRAGeNews
+MIRAGENEWS_DATASET_ID = "anson-huang/mirage-news"
+
 # Limites d'extraction par défaut (None = pas de limite)
 DEFAULT_LIMITS: dict[str, int | None] = {
     "mmfakebench": None,    # ~11 000 entrées, dataset annoté de qualité
     "fakeddit":    10_000,  # dataset massif (>1M), sélection représentative
-    "hemt_fake":   None,    # taille raisonnable, annoté
-    "mediaeval":   None,    # ~1 000 entrées seulement
+    "miragenews":  None,    # ~15 000 entrées, dataset AI-generated images
+    "mediaeval":   None,    # ~2 177 entrées
     "rss":         500,     # flux live, qualité variable
 }
