@@ -3,7 +3,7 @@
 from config import DEFAULT_LIMITS
 
 
-_KNOWN_SOURCES = {"mmfakebench", "fakeddit", "hemt_fake", "mediaeval", "rss"}
+_KNOWN_SOURCES = {"mmfakebench", "fakeddit", "miragenews", "mediaeval", "rss"}
 
 
 def test_default_limits_covers_all_sources():

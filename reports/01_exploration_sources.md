@@ -1,7 +1,7 @@
 # Rapport d'exploration des sources de données multimodales
 
 **Projet** : Détection de fake news multimodales
-**Date** : 2026-03-17
+**Date** : 2026-03-19
 **Auteur** : Xavier Coulon
 
 ---
@@ -11,15 +11,16 @@
 | # | Source | Modalités | Volume | Langue | Labels | Qualité labels | Faisabilité |
 |---|--------|-----------|--------|--------|--------|----------------|-------------|
 | 1 | **Fakeddit** | texte + image + metadata | ~1M | EN | 2 et 6 classes | Haute | ✅ |
-| 2 | **MMFakeBench** | texte + image | ~10k | EN | vrai/faux (12 sous-catégories) | Très haute | ✅ |
-| 3 | **HEMT-Fake** | texte + image | 74k | EN/HI/GU/MR/TE | vrai/faux | Haute | ✅ |
-| 4 | **MediaEval VMU** | tweet + image | ~15k | EN | real/fake/non-verifiable | Haute | ✅ |
+| 2 | **MMFakeBench** | texte + image | ~11k | EN | vrai/faux (12 sous-catégories) | Très haute | ✅ |
+| 3 | **MiRAGeNews** | texte + image | ~15k | EN | real / fake (image AI-générée) | Haute | ✅ |
+| 4 | **MediaEval VMU** | tweet + image (référence locale) | ~2 177 | EN | real/fake/non-verifiable | Haute | ✅ |
 | 5 | **RSS flux fiables** | texte + image | continu | FR/EN | real (implicite) | Moyenne | ✅ |
 
 ### Sources écartées
 
 | Source | Raison d'exclusion |
 |--------|-------------------|
+| **HEMT-Fake** | Dataset text-only constaté à l'usage : les ZIPs Zenodo ne contiennent que des fichiers `.txt`, sans image — incompatible avec un pipeline multimodal |
 | **FakeNewsNet** | Requiert credentials Twitter/X API — accès très restrictif depuis 2023 |
 | **Reddit / PRAW** | API Reddit 2023+ trop restrictive ; historique largement inaccessible |
 | **NewsData.io API** | Free tier insuffisant : délai 12h, pas de texte intégral, 200 crédits/jour |
@@ -34,14 +35,14 @@ Toutes les sources sont normalisées vers le schéma **JSON Lines** (`.jsonl`) s
 ```json
 {
   "id": "uuid-v4",
-  "source": "fakeddit|mmfakebench|hemt_fake|mediaeval|rss",
+  "source": "fakeddit|mmfakebench|miragenews|mediaeval|rss",
   "title": "Titre de l'article ou du post",
   "text": "Corps textuel ou résumé",
   "image_url": "https://example.com/image.jpg",
   "image_path": "data/images/<id>.jpg",
   "label": "real|fake|unknown",
   "label_confidence": "high|medium|low",
-  "language": "en|fr|hi|...",
+  "language": "en|fr",
   "date": "2024-01-15T12:00:00Z",
   "url": "https://example.com/article",
   "domain": "example.com",
@@ -49,7 +50,7 @@ Toutes les sources sont normalisées vers le schéma **JSON Lines** (`.jsonl`) s
 }
 ```
 
-**Champs obligatoires** : `id`, `source`, `text`, `image_url`, `label`, `extraction_method`
+**Champs obligatoires** : `id`, `source`, `text`, `label`, `extraction_method`
 **Stockage** : JSON Lines (`.jsonl`), un enregistrement par ligne, compatible `pandas` et HuggingFace `datasets`
 
 ---
@@ -61,7 +62,7 @@ Toutes les sources sont normalisées vers le schéma **JSON Lines** (`.jsonl`) s
 | Propriété | Valeur |
 |-----------|--------|
 | **Type** | Dataset statique |
-| **Format** | CSV (Google Drive) + URLs images |
+| **Format** | CSV (téléchargement manuel) + URLs images |
 | **Langue** | Anglais |
 | **Labels** | 2 classes (real/fake) + 6 classes détaillées |
 | **Volume** | ~1 million d'échantillons |
@@ -73,6 +74,9 @@ Dataset construit à partir de posts Reddit couvrant 22 subreddits. Chaque entr�
 
 **Qualité des labels**
 Haute — labels dérivés des règles communautaires de chaque subreddit (r/TheOnion = satire, r/worldnews = réel). Biais potentiel : surreprésentation de la politique américaine et du divertissement.
+
+**Méthode d'extraction**
+Téléchargement manuel des CSV depuis le site officiel, placement dans `data/raw/fakeddit/`. L'extracteur lit les CSV et utilise les URLs d'images.
 
 **Mapping vers le format unifié**
 
@@ -88,8 +92,8 @@ Haute — labels dérivés des règles communautaires de chaque subreddit (r/The
 
 **Points de vigilance**
 - Le texte est limité au titre du post (pas de corps d'article)
-- Certaines URLs d'images sont mortes depuis les restrictions API Reddit 2023 — utiliser les fichiers pré-téléchargés disponibles sur le site officiel
-- Le label *non-verifiable* ne correspond pas à de la désinformation → à exclure ou mapper sur `unknown`
+- URLs d'images potentiellement mortes — utiliser les fichiers pré-téléchargés du site officiel
+- Le label *non-verifiable* ne correspond pas à de la désinformation → exclu ou mappé `unknown`
 
 ---
 
@@ -98,110 +102,110 @@ Haute — labels dérivés des règles communautaires de chaque subreddit (r/The
 | Propriété | Valeur |
 |-----------|--------|
 | **Type** | Dataset statique — benchmark |
-| **Format** | Parquet via HuggingFace `datasets` |
+| **Format** | Parquet via HuggingFace `datasets` (HF_TOKEN requis) |
 | **Langue** | Anglais |
 | **Labels** | Binaire (real/fake) + 3 catégories × 4 sous-catégories |
 | **Licence** | CC-BY 4.0 (Data Usage Protocol à accepter sur HuggingFace) |
 | **Accès** | [HuggingFace](https://huggingface.co/datasets/liuxuannan/MMFakeBench) · [GitHub](https://github.com/liuxuannan/MMFakeBench) — ICLR 2025 |
 
 **Description**
-Benchmark de référence (2025) couvrant 3 types de fake news multimodales : *text-only manipulation*, *image-only manipulation*, *cross-modal inconsistency*. Conçu spécifiquement pour l'évaluation de modèles multimodaux.
+Benchmark de référence (ICLR 2025) couvrant 3 types de fake news multimodales : *text-only manipulation*, *image-only manipulation*, *cross-modal inconsistency*. Conçu spécifiquement pour l'évaluation de modèles multimodaux.
 
 **Qualité des labels**
-Très haute — annotations humaines expertes avec double validation, conçu pour être benchmark de référence ICLR 2025.
+Très haute — annotations humaines expertes avec double validation.
+
+**Méthode d'extraction**
+API HuggingFace `datasets` avec token d'authentification. Splits val (1k) + test (10k).
 
 **Mapping vers le format unifié**
 
 | Champ MMFakeBench | Champ unifié |
 |-------------------|--------------|
-| `id` | `id` |
 | `text` | `text` |
-| `title` | `title` |
-| `image` / `image_url` | `image_path` / `image_url` |
-| `label` | `label` (0 = fake, 1 = real) |
-| `category` | `label_confidence` (proxy) |
-| `source` | `domain` |
-| `date` | `date` |
+| `image_path` | `image_path` (référence interne HF) |
+| `gt_answers` ("True"/"Fake") | `label` |
+| `text_source` | `domain` |
 
 **Points de vigilance**
-- Signature du Data Usage Protocol obligatoire avant accès sur HuggingFace
-- Dataset orienté évaluation : distributions réel/faux équilibrées artificiellement, éloignées de la réalité terrain
-- Droits d'image potentiellement complexes pour redistribution (images issues de Twitter et sites d'actualité)
+- Signature du Data Usage Protocol obligatoire (variable d'environnement `HF_TOKEN`)
+- Champ `gt_answers` : valeurs réelles = `"True"` et `"Fake"` (pas `"False"`)
+- Dataset orienté évaluation : distributions équilibrées artificiellement
 
 ---
 
-### 3.3 HEMT-Fake
+### 3.3 MiRAGeNews
 
 | Propriété | Valeur |
 |-----------|--------|
 | **Type** | Dataset statique |
-| **Format** | Téléchargement direct (Zenodo) |
-| **Langue** | Anglais, Hindi, Gujarati, Marathi, Telugu |
-| **Labels** | Binaire (real/fake) |
-| **Volume** | 74 032 articles |
-| **Licence** | Open access |
-| **Accès** | [Zenodo DOI 10.5281/zenodo.11408513](https://zenodo.org/records/11408513) |
+| **Format** | Parquet HuggingFace (images embarquées, aucun token requis) |
+| **Langue** | Anglais |
+| **Labels** | Binaire : real (0) / fake — image générée par IA (1) |
+| **Volume** | ~15 000 paires (10k train + 2.5k val + 5×500 test) |
+| **Licence** | Non spécifiée (usage recherche) |
+| **Accès** | [HuggingFace](https://huggingface.co/datasets/anson-huang/mirage-news) · [GitHub](https://github.com/nosna/miragenews) |
 
 **Description**
-Dataset multilingue rare couvrant 5 langues du sous-continent indien et l'anglais. Chaque entrée associe un article textuel et son image. Publié en 2024-2025, conçu pour la recherche en détection de désinformation multimodale et multilingue.
+Dataset centré sur la détection d'images générées par IA (Midjourney, DALL-E 3, SDXL) associées à de vraies dépêches (NYT, BBC, CNN). Chaque entrée contient une image PIL directement embarquée dans les fichiers Parquet et la dépêche textuelle correspondante. Le "fake" représente une image AI-générée associée à un texte réel — cas typique de manipulation visuelle moderne.
 
 **Qualité des labels**
-Haute — annotations manuelles, sources vérifiées via fact-checkers reconnus dans chaque langue.
+Haute — dataset construit de façon contrôlée : les images réelles viennent de sources journalistiques vérifiées, les images fausses sont générées par IA avec différents modèles (5 combinaisons source×modèle dans les splits de test).
+
+**Méthode d'extraction**
+API HuggingFace `datasets` sans authentification. Images PIL sauvegardées localement dans `data/images/miragenews/`.
 
 **Mapping vers le format unifié**
 
-| Champ HEMT-Fake | Champ unifié |
-|-----------------|--------------|
-| `id` | `id` |
-| `title` | `title` |
-| `text` / `content` | `text` |
-| `image_url` / `image_path` | `image_url` / `image_path` |
-| `label` | `label` |
-| `language` | `language` |
-| `source_url` | `url` + `domain` |
-| `date` | `date` |
+| Champ MiRAGeNews | Champ unifié |
+|------------------|--------------|
+| `text` | `text` |
+| `image` (PIL.Image) | `image_path` (sauvegardé en JPEG local) |
+| `label` (0/1) | `label` (0 = real, 1 = fake) |
+| `_split` | `domain` (ex: `train`, `test2_bbc_dalle`) |
 
 **Points de vigilance**
-- Couverture géographique centrée sur le sous-continent indien — biais thématique si le cas d'usage cible l'Europe ou les États-Unis
-- Langues indiennes : nécessite un tokenizer multilingue (mBERT, XLM-R) pour l'entraînement
-- Vérifier la structure exacte du fichier JSON après téléchargement (peut varier selon la version Zenodo)
+- Le "fake" = image AI-générée + texte réel — couverture d'un type spécifique de désinformation visuelle (deepfakes, illustrations trompeuses)
+- Pas de fake news "textuellement fausses" — complémentaire à MMFakeBench et Fakeddit
+- Espace disque : ~2 Go pour le dataset complet (images embarquées dans Parquet)
 
 ---
 
-### 3.4 MediaEval Verifying Multimedia Use (VMU)
+### 3.4 MediaEval Verifying Multimedia Use (VMU) 2016
 
 | Propriété | Valeur |
 |-----------|--------|
 | **Type** | Dataset statique — benchmark de challenge |
-| **Format** | JSON + images |
+| **Format** | TSV (tab-separated), images dans ZIP séparé |
 | **Langue** | Anglais |
-| **Labels** | `real` / `fake` / `non-verifiable` |
-| **Volume** | ~15 000 entrées (variable selon édition) |
+| **Labels** | `real` / `fake` / `humor` (→ fake) / `non-verifiable` (→ unknown) |
+| **Volume** | 2 177 tweets (testset annoté) |
 | **Éditions** | 2015–2022 (archivées) |
 | **Licence** | Usage académique |
-| **Accès** | [multimediaeval.github.io](https://multimediaeval.github.io/) |
+| **Accès** | [MKLab-ITI/image-verification-corpus](https://github.com/MKLab-ITI/image-verification-corpus) |
 
 **Description**
-Challenge annuel (2015-2022) centré sur la vérification de contenu multimédia partagé sur les réseaux sociaux. Les données consistent en tweets avec images potentiellement *out-of-context* : l'image est réelle, mais associée à un faux contexte textuel.
+Challenge annuel (2015-2022) centré sur la vérification de contenu multimédia partagé sur les réseaux sociaux. Les données consistent en tweets avec images potentiellement *out-of-context* : l'image est réelle, mais associée à un faux contexte textuel. Source réelle archivée : `MKLab-ITI/image-verification-corpus` (le repo `multimediaeval/2016-Fake-News-Detection` est une référence caduque).
 
 **Qualité des labels**
-Haute — annotations par des équipes de journalistes et fact-checkers. Le label `non-verifiable` signale les cas ambigus (à distinguer des opinions).
+Haute — annotations par des équipes de journalistes et fact-checkers. Le label `non-verifiable` signale les cas ambigus.
+
+**Méthode d'extraction**
+Téléchargement direct du fichier TSV `posts_groundtruth.txt` depuis GitHub. Mise en cache locale dans `data/raw/mediaeval/`.
 
 **Mapping vers le format unifié**
 
-| Champ MediaEval | Champ unifié |
-|-----------------|--------------|
-| `tweetId` | `id` |
-| `tweetText` | `text` |
-| `imageUrl` | `image_url` |
+| Champ TSV MediaEval | Champ unifié |
+|---------------------|--------------|
+| `post_id` | `id` + `url` (twitter.com) |
+| `post_text` | `text` |
+| `image_id` | `image_path` (identifiant local, ex: `airstrikes_1`) |
+| `timestamp` | `date` |
 | `label` | `label` |
-| `date` | `date` |
-| `tweetId` (construit) | `url` (url Twitter) |
 
 **Points de vigilance**
-- Contenu centré sur la manipulation visuelle hors-contexte : utile pour détecter les images réutilisées, moins représentatif des fake news purement textuelles
-- URLs Twitter dans les données peuvent être inaccessibles (comptes suspendus, contenus supprimés)
-- Le label `non-verifiable` doit être mappé sur `unknown` et traité séparément en entraînement
+- Les images référencées par `image_id` sont dans `Mediaeval2016_TestSet_Images.zip` (non téléchargé) — `image_path` contient l'identifiant, pas un chemin absolu
+- Contenu centré sur la manipulation visuelle hors-contexte (images réutilisées dans un faux contexte)
+- Le label `non-verifiable` → mappé `unknown`, à traiter séparément en entraînement
 
 ---
 
@@ -219,14 +223,19 @@ Haute — annotations par des équipes de journalistes et fact-checkers. Le labe
 **Description**
 Les flux RSS de médias de référence fournissent un flux continu d'articles récents avec titre, résumé et image. Ils constituent une source de données `real` pour équilibrer le corpus. Snopes ajoute une dimension fact-checking avec label explicite dans le titre.
 
+**Méthode d'extraction**
+`feedparser.parse(url)` — parsing XML natif, pas de scraping. Téléchargement des images via `requests`.
+
 **Flux retenus**
 
 | Source | URL RSS | Langue | Label |
 |--------|---------|--------|-------|
 | Le Monde | `https://www.lemonde.fr/rss/une.xml` | FR | real (implicite) |
-| Reuters | `https://feeds.reuters.com/reuters/topNews` | EN | real (implicite) |
 | BBC News | `http://feeds.bbci.co.uk/news/rss.xml` | EN | real (implicite) |
+| The Guardian | `https://www.theguardian.com/world/rss` | EN | real (implicite) |
 | Snopes | `https://www.snopes.com/feed/` | EN | real/false/mixture (titre) |
+
+> Note : Reuters a désactivé ses flux RSS publics en 2020. Remplacé par The Guardian.
 
 **Mapping vers le format unifié**
 
@@ -242,8 +251,8 @@ Les flux RSS de médias de référence fournissent un flux continu d'articles r�
 **Points de vigilance**
 - Les flux RSS ne donnent qu'un résumé (50-200 mots), pas le texte intégral
 - `label_confidence: medium` — label `real` implicite, non vérifié article par article
-- Tous les flux n'incluent pas d'image : vérifier la présence des balises `<enclosure>` ou `<media:content>` avant intégration
-- Snopes : le label explicite est parseable depuis le titre (préfixe "True:", "False:", "Mixture:") — traitement supplémentaire nécessaire
+- Tous les flux n'incluent pas d'image : vérifier la présence des balises `<enclosure>` ou `<media:content>`
+- Snopes : le label explicite est parseable depuis le titre (préfixe "True:", "False:", "Mixture:")
 
 ---
 
@@ -261,7 +270,7 @@ Les flux RSS de médias de référence fournissent un flux continu d'articles r�
 | **Exemple** | "Cette politique économique est mauvaise" | "Le vaccin X contient une puce électronique" |
 | **Traitement dans le dataset** | Exclure ou mapper `unknown` | Label `fake` |
 
-Les datasets retenus (Fakeddit, MMFakeBench, HEMT-Fake) distinguent explicitement ces cas dans leurs protocoles d'annotation. Vérifier néanmoins les labels borderline lors du nettoyage.
+Les datasets retenus (Fakeddit, MMFakeBench, MiRAGeNews) distinguent explicitement ces cas dans leurs protocoles d'annotation. Vérifier néanmoins les labels borderline lors du nettoyage.
 
 ### Champs secondaires à conserver
 
@@ -272,7 +281,7 @@ Ne pas négliger : `domain`, `url`, `date`, `label_confidence`. Ils permettent :
 
 ### Association texte–image
 
-Vérifier systématiquement que chaque entrée contient **à la fois** un `text` non vide et un `image_url` valide. Les entrées incomplètes sont à filtrer ou à isoler dans un split séparé.
+Vérifier systématiquement que chaque entrée contient **à la fois** un `text` non vide et un `image_url` ou `image_path` valide. Les entrées incomplètes sont à filtrer ou à isoler dans un split séparé. La colonne `text_image_ok` du pipeline de transformation formalise ce contrôle.
 
 ---
 
@@ -280,11 +289,12 @@ Vérifier systématiquement que chaque entrée contient **à la fois** un `text`
 
 Les 5 sources retenues couvrent des cas d'usage complémentaires :
 
-- **Fakeddit** et **HEMT-Fake** apportent du volume et de la diversité linguistique
-- **MMFakeBench** apporte la précision de label et couvre les 3 types principaux de manipulation multimodale
-- **MediaEval VMU** apporte des cas réels de manipulation d'images hors-contexte
+- **Fakeddit** apporte du volume (>1M) et une classification fine (6 classes) sur des posts Reddit
+- **MMFakeBench** apporte la précision de label et couvre les 3 types principaux de manipulation multimodale (ICLR 2025)
+- **MiRAGeNews** couvre les images générées par IA (Midjourney, DALL-E 3, SDXL) — cas de désinformation visuelle moderne
+- **MediaEval VMU** apporte des cas réels d'images hors-contexte (vraie image, faux contexte)
 - **RSS fiables** apportent un flux dynamique récent avec couverture française
 
 **Format retenu** : JSON Lines (`.jsonl`) — lisible ligne par ligne, compatible `pandas`, HuggingFace `datasets` et Apache Arrow, sans chargement mémoire complet.
 
-**Prochaine étape** : implémentation des scripts d'extraction pour chaque source.
+**Prochaine étape** : pipeline de transformation (nettoyage, normalisation, export Parquet).

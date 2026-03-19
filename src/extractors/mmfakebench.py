@@ -24,8 +24,9 @@ from src.utils.image import is_valid_image_url
 
 load_dotenv()
 
-# gt_answers : "True" = contenu authentique, "False" = contenu manipulé
-_LABEL_MAP = {"True": "real", "False": "fake"}
+# gt_answers : "True" = contenu authentique, "Fake" = contenu manipulé
+# (valeurs réelles observées dans le dataset, pas "False")
+_LABEL_MAP = {"True": "real", "Fake": "fake", "False": "fake"}
 
 
 class MMFakeBenchExtractor(BaseExtractor):

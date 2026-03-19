@@ -21,7 +21,7 @@ class FakedditExtractor(BaseExtractor):
     source_name = "fakeddit"
 
     def extract(self) -> Iterator[dict]:
-        csv_files = list(FAKEDDIT_RAW_DIR.glob("*.csv"))
+        csv_files = list(FAKEDDIT_RAW_DIR.glob("*.csv")) + list(FAKEDDIT_RAW_DIR.glob("*.tsv"))
         if not csv_files:
             self.logger.error(
                 "Aucun CSV trouvé dans %s. "
@@ -32,8 +32,9 @@ class FakedditExtractor(BaseExtractor):
 
         for csv_path in csv_files:
             self.logger.info("Lecture CSV : %s", csv_path.name)
+            sep = "\t" if csv_path.suffix == ".tsv" else ","
             try:
-                df = pd.read_csv(csv_path, low_memory=False)
+                df = pd.read_csv(csv_path, sep=sep, low_memory=False)
                 for _, row in df.iterrows():
                     yield row.to_dict()
             except Exception as e:
