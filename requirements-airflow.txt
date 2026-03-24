@@ -1,0 +1,10 @@
+feedparser>=6.0
+pandas>=2.2
+datasets>=3.0
+Pillow>=11.0
+tqdm>=4.67
+python-dotenv>=1.0
+pyarrow>=23.0
+requests>=2.32
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
