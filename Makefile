@@ -20,6 +20,7 @@ help:
 	@echo "  make verify                   Vérifier le Parquet produit"
 	@echo ""
 	@echo "  Orchestration (étape 4)"
+	@echo "  make airflow-keygen           Générer les clés crypto et les ajouter dans .env"
 	@echo "  make airflow-init             Initialiser Airflow (DB + user admin)"
 	@echo "  make airflow-up               Démarrer Airflow + PostgreSQL (http://localhost:8080)"
 	@echo "  make airflow-down             Arrêter les containers"
@@ -48,6 +49,17 @@ verify:
 	uv run python verify.py
 
 # Orchestration Airflow (étape 4)
+airflow-keygen:
+	@uv run python -c "\
+import pathlib, secrets; \
+from cryptography.fernet import Fernet; \
+env = pathlib.Path('.env'); \
+content = env.read_text() if env.exists() else ''; \
+lines = []; \
+('AIRFLOW__CORE__FERNET_KEY' in content) or lines.append('AIRFLOW__CORE__FERNET_KEY=' + Fernet.generate_key().decode()); \
+('AIRFLOW_SECRET_KEY' in content) or lines.append('AIRFLOW_SECRET_KEY=' + secrets.token_hex(32)); \
+lines and (env.write_text(content.rstrip() + '\n' + '\n'.join(lines) + '\n') or print('Clés ajoutées dans .env :', ', '.join(l.split('=')[0] for l in lines))) or print('Clés déjà présentes dans .env')"
+
 airflow-init:
 	docker compose run --rm airflow-webserver airflow db migrate
 	docker compose run --rm airflow-webserver airflow users create \
@@ -69,5 +81,5 @@ install:
 test:
 	uv run pytest tests/ -v
 
-.PHONY: help extract transform verify install test airflow-init airflow-up airflow-down
+.PHONY: help extract transform verify install test airflow-keygen airflow-init airflow-up airflow-down
 .DEFAULT_GOAL := help

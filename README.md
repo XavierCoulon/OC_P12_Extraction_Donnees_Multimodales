@@ -178,30 +178,37 @@ Toutes les tâches extract sont parallèles. Le DAG est déclenché manuellement
 **Prérequis** : Docker Desktop installé et démarré.
 
 ```bash
-# 1. Copier .env.example → .env et renseigner les variables (voir ci-dessous)
+# 1. Renseigner les 3 variables du .env
 cp .env.example .env
+# Éditer HF_TOKEN, AIRFLOW_POSTGRES_PASSWORD, DATA_POSTGRES_PASSWORD
 
-# 2. Initialiser Airflow (première fois uniquement)
+# 2. Générer les clés crypto (une seule fois)
+make airflow-keygen
+
+# 3. Initialiser Airflow (première fois uniquement)
 make airflow-init
 
-# 3. Démarrer les services
+# 4. Démarrer les services
 make airflow-up
 # → Interface : http://localhost:8080 (admin / admin)
 
-# 4. Activer et déclencher le DAG "etl_multimodal" depuis l'UI
+# 5. Activer et déclencher le DAG "etl_multimodal" depuis l'UI
 
-# 5. Arrêter
+# 6. Arrêter
 make airflow-down
 ```
 
 ### Variables d'environnement (`.env`)
 
+Seules 3 variables sont à renseigner manuellement :
+
 | Variable | Description |
 |----------|-------------|
-| `AIRFLOW__CORE__FERNET_KEY` | Clé Fernet (chiffrement connexions Airflow) — `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
-| `AIRFLOW_SECRET_KEY` | Clé secrète webserver — `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `HF_TOKEN` | Token HuggingFace (requis pour MMFakeBench) |
 | `AIRFLOW_POSTGRES_PASSWORD` | Mot de passe PostgreSQL interne Airflow |
-| `DATA_POSTGRES_URL` | URL connexion data warehouse (`postgresql+psycopg2://etl_user:...@data-postgres/multimodal`) |
+| `DATA_POSTGRES_PASSWORD` | Mot de passe du data warehouse ETL |
+
+Les clés crypto (`AIRFLOW__CORE__FERNET_KEY`, `AIRFLOW_SECRET_KEY`) sont générées et ajoutées automatiquement dans `.env` par `make airflow-keygen`.
 
 ### Sécurité
 

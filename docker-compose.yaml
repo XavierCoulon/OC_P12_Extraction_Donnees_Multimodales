@@ -17,7 +17,7 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__LOAD_EXAMPLES: "false"
     AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
     PYTHONPATH: /opt/airflow
-    DATA_POSTGRES_URL: ${DATA_POSTGRES_URL}
+    DATA_POSTGRES_URL: postgresql+psycopg2://etl_user:${DATA_POSTGRES_PASSWORD}@data-postgres/multimodal
     HF_TOKEN: ${HF_TOKEN}
   volumes:
     - ./dags:/opt/airflow/dags
@@ -47,16 +47,16 @@ services:
   data-postgres:
     image: postgres:16
     environment:
-      POSTGRES_USER: ${DATA_POSTGRES_USER}
+      POSTGRES_USER: etl_user
       POSTGRES_PASSWORD: ${DATA_POSTGRES_PASSWORD}
-      POSTGRES_DB: ${DATA_POSTGRES_DB}
+      POSTGRES_DB: multimodal
     ports:
       - "5432:5432"
     volumes:
       - data-pgdata:/var/lib/postgresql/data
       - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "${DATA_POSTGRES_USER}"]
+      test: ["CMD", "pg_isready", "-U", "etl_user"]
       interval: 10s
       retries: 5
 
