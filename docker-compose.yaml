@@ -9,7 +9,7 @@
 
 x-airflow-common: &airflow-common
   build: .
-  image: oc-p12-airflow:latest
+  image: oc-p12-airflow:2.10.4
   env_file: .env
   environment:
     AIRFLOW__CORE__EXECUTOR: LocalExecutor
