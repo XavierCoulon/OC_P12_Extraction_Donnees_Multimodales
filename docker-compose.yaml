@@ -56,7 +56,7 @@ services:
     volumes:
       - data-pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "pg_isready", "-U", "etl_user"]
+      test: ["CMD", "pg_isready", "-U", "etl_user", "-d", "multimodal"]
       interval: 10s
       retries: 5
 
