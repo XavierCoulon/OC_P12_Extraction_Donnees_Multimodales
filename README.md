@@ -144,8 +144,91 @@ Voir [`docs/schema_donnees.md`](docs/schema_donnees.md) pour le modèle conceptu
 
 ---
 
+## Étape 4 — Orchestration ETL avec Apache Airflow
+
+**Issue** : [#10](https://github.com/XavierCoulon/OC_P12_Extraction_Donnees_Multimodales/issues/10)
+
+DAG Airflow qui orchestre le pipeline complet et charge les données dans PostgreSQL.
+
+### Architecture
+
+```
+docker-compose.yaml       ← Infrastructure (Airflow + PostgreSQL)
+docker/init-db.sql        ← Init data warehouse (table + rôles)
+dags/
+  etl_multimodal.py       ← DAG principal (7 tâches PythonOperator)
+src/load/
+  postgres_loader.py      ← Parquet → PostgreSQL (upsert idempotent)
+```
+
+### DAG
+
+```
+extract_rss ────────┐
+extract_fakeddit ───┤
+extract_mmfakebench ┼──► transform_data ──► load_to_postgres
+extract_miragenews ─┤
+extract_mediaeval ──┘
+```
+
+Toutes les tâches extract sont parallèles. Le DAG est déclenché manuellement depuis l'UI.
+
+### Démarrage
+
+**Prérequis** : Docker Desktop installé et démarré.
+
+```bash
+# 1. Renseigner les 3 variables du .env
+cp .env.example .env
+# Éditer HF_TOKEN, AIRFLOW_POSTGRES_PASSWORD, DATA_POSTGRES_PASSWORD
+
+# 2. Générer les clés crypto (une seule fois)
+make airflow-keygen
+
+# 3. Initialiser Airflow (première fois uniquement)
+make airflow-init
+
+# 4. Démarrer les services
+make airflow-up
+# → Interface : http://localhost:8080 (admin / admin)
+
+# 5. Activer et déclencher le DAG "etl_multimodal" depuis l'UI
+
+# 6. Arrêter
+make airflow-down
+```
+
+### Variables d'environnement (`.env`)
+
+Seules 3 variables sont à renseigner manuellement :
+
+| Variable | Description |
+|----------|-------------|
+| `HF_TOKEN` | Token HuggingFace (requis pour MMFakeBench) |
+| `AIRFLOW_POSTGRES_PASSWORD` | Mot de passe PostgreSQL interne Airflow |
+| `DATA_POSTGRES_PASSWORD` | Mot de passe du data warehouse ETL |
+
+Les clés crypto (`AIRFLOW__CORE__FERNET_KEY`, `AIRFLOW_SECRET_KEY`) sont générées et ajoutées automatiquement dans `.env` par `make airflow-keygen`.
+
+### Sécurité
+
+- Utilisateur PostgreSQL dédié `etl_user` (permissions `INSERT, SELECT, UPDATE` uniquement, pas superuser)
+- Credentials dans `.env` uniquement (jamais dans le code)
+- Connexion PostgreSQL via `sslmode=require` en production
+- `AIRFLOW__CORE__FERNET_KEY` pour le chiffrement des connexions stockées dans Airflow
+
+### Idempotence
+
+Les 3 extracteurs qui généraient des UUID4 aléatoires (RSS, MMFakeBench, MiRAGeNews) utilisent
+désormais `uuid5(NAMESPACE_URL, source + url)` — IDs déterministes. Un re-run du DAG ajoute
+les nouveaux articles et ignore les existants (`ON CONFLICT (id) DO NOTHING`).
+
+---
+
 ## Stack
 
 - Python 3.12
 - `requests`, `feedparser`, `pandas`, `datasets`, `Pillow`, `pyarrow`, `tqdm`, `python-dotenv`
+- `sqlalchemy`, `psycopg2-binary`
 - `uv` pour la gestion des dépendances
+- Docker + Apache Airflow 2.9, PostgreSQL 16

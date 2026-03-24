@@ -13,6 +13,9 @@ dependencies = [
     "tqdm>=4.67",
     "python-dotenv>=1.0",
     "pyarrow>=23.0.1",
+    "sqlalchemy>=2.0.48",
+    "psycopg2-binary>=2.9.11",
+    "cryptography>=46.0.5",
 ]
 
 [project.optional-dependencies]
