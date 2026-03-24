@@ -73,7 +73,7 @@ class MMFakeBenchExtractor(BaseExtractor):
         label = _LABEL_MAP.get(raw_label, "unknown")
 
         return {
-            "id": str(uuid.uuid4()),
+            "id": str(uuid.uuid5(uuid.NAMESPACE_URL, f"mmfakebench:{image_path}")),
             "source": self.source_name,
             "title": "",
             "text": text,

@@ -19,6 +19,11 @@ help:
 	@echo "  make transform-SOURCE         Transformer une source (ex: make transform-rss)"
 	@echo "  make verify                   Vérifier le Parquet produit"
 	@echo ""
+	@echo "  Orchestration (étape 4)"
+	@echo "  make airflow-init             Initialiser Airflow (DB + user admin)"
+	@echo "  make airflow-up               Démarrer Airflow + PostgreSQL (http://localhost:8080)"
+	@echo "  make airflow-down             Arrêter les containers"
+	@echo ""
 	@echo "  Qualité"
 	@echo "  make test                     Lancer les tests pytest"
 	@echo ""
@@ -42,6 +47,20 @@ transform-%:
 verify:
 	uv run python verify.py
 
+# Orchestration Airflow (étape 4)
+airflow-init:
+	docker compose run --rm airflow-webserver airflow db migrate
+	docker compose run --rm airflow-webserver airflow users create \
+		--username admin --password admin \
+		--firstname Admin --lastname User \
+		--role Admin --email admin@localhost
+
+airflow-up:
+	docker compose up -d
+
+airflow-down:
+	docker compose down
+
 # Installation des dépendances
 install:
 	uv sync
@@ -50,5 +69,5 @@ install:
 test:
 	uv run pytest tests/ -v
 
-.PHONY: help extract transform verify install test
+.PHONY: help extract transform verify install test airflow-init airflow-up airflow-down
 .DEFAULT_GOAL := help

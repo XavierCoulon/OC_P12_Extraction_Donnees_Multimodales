@@ -1,0 +1,91 @@
+---
+# Docker Compose — Airflow + PostgreSQL (étape 4 OC P12)
+#
+# Services :
+#   airflow-postgres  : PostgreSQL pour les métadonnées Airflow (interne)
+#   data-postgres     : PostgreSQL pour le data warehouse ETL
+#   airflow-webserver : Interface graphique Airflow (http://localhost:8080)
+#   airflow-scheduler : Démon Airflow qui surveille et déclenche les DAGs
+
+x-airflow-common: &airflow-common
+  image: apache/airflow:2.9.3
+  env_file: .env
+  environment:
+    AIRFLOW__CORE__EXECUTOR: LocalExecutor
+    AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:${AIRFLOW_POSTGRES_PASSWORD}@airflow-postgres/airflow
+    AIRFLOW__CORE__FERNET_KEY: ${AIRFLOW__CORE__FERNET_KEY}
+    AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+    AIRFLOW__WEBSERVER__SECRET_KEY: ${AIRFLOW_SECRET_KEY}
+    PYTHONPATH: /opt/airflow
+    DATA_POSTGRES_URL: ${DATA_POSTGRES_URL}
+    HF_TOKEN: ${HF_TOKEN}
+  volumes:
+    - ./dags:/opt/airflow/dags
+    - ./src:/opt/airflow/src
+    - ./data:/opt/airflow/data
+    - ./config.py:/opt/airflow/config.py
+    - ./main.py:/opt/airflow/main.py
+    - airflow-logs:/opt/airflow/logs
+  depends_on:
+    airflow-postgres:
+      condition: service_healthy
+
+services:
+  airflow-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: ${AIRFLOW_POSTGRES_PASSWORD}
+      POSTGRES_DB: airflow
+    volumes:
+      - airflow-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 10s
+      retries: 5
+
+  data-postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: ${DATA_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${DATA_POSTGRES_PASSWORD}
+      POSTGRES_DB: ${DATA_POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - data-pgdata:/var/lib/postgresql/data
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "${DATA_POSTGRES_USER}"]
+      interval: 10s
+      retries: 5
+
+  airflow-webserver:
+    <<: *airflow-common
+    command: webserver
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+      data-postgres:
+        condition: service_healthy
+
+  airflow-scheduler:
+    <<: *airflow-common
+    command: scheduler
+    depends_on:
+      airflow-postgres:
+        condition: service_healthy
+      data-postgres:
+        condition: service_healthy
+
+volumes:
+  airflow-pgdata:
+  data-pgdata:
+  airflow-logs:

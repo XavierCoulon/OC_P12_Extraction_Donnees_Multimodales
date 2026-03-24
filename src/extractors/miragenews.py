@@ -75,7 +75,7 @@ class MiRAGeNewsExtractor(BaseExtractor):
             return None
 
         # Sauvegarde de l'image PIL sur disque
-        entry_id = str(uuid.uuid4())
+        entry_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"miragenews:{text[:200]}"))
         image_filename = f"{entry_id}.jpg"
         image_path = _IMAGES_DIR / image_filename
 

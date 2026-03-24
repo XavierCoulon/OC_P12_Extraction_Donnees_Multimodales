@@ -144,8 +144,84 @@ Voir [`docs/schema_donnees.md`](docs/schema_donnees.md) pour le modèle conceptu
 
 ---
 
+## Étape 4 — Orchestration ETL avec Apache Airflow
+
+**Issue** : [#10](https://github.com/XavierCoulon/OC_P12_Extraction_Donnees_Multimodales/issues/10)
+
+DAG Airflow qui orchestre le pipeline complet et charge les données dans PostgreSQL.
+
+### Architecture
+
+```
+docker-compose.yaml       ← Infrastructure (Airflow + PostgreSQL)
+docker/init-db.sql        ← Init data warehouse (table + rôles)
+dags/
+  etl_multimodal.py       ← DAG principal (7 tâches PythonOperator)
+src/load/
+  postgres_loader.py      ← Parquet → PostgreSQL (upsert idempotent)
+```
+
+### DAG
+
+```
+extract_rss ────────┐
+extract_fakeddit ───┤
+extract_mmfakebench ┼──► transform_data ──► load_to_postgres
+extract_miragenews ─┤
+extract_mediaeval ──┘
+```
+
+Toutes les tâches extract sont parallèles. Le DAG est déclenché manuellement depuis l'UI.
+
+### Démarrage
+
+**Prérequis** : Docker Desktop installé et démarré.
+
+```bash
+# 1. Copier .env.example → .env et renseigner les variables (voir ci-dessous)
+cp .env.example .env
+
+# 2. Initialiser Airflow (première fois uniquement)
+make airflow-init
+
+# 3. Démarrer les services
+make airflow-up
+# → Interface : http://localhost:8080 (admin / admin)
+
+# 4. Activer et déclencher le DAG "etl_multimodal" depuis l'UI
+
+# 5. Arrêter
+make airflow-down
+```
+
+### Variables d'environnement (`.env`)
+
+| Variable | Description |
+|----------|-------------|
+| `AIRFLOW__CORE__FERNET_KEY` | Clé Fernet (chiffrement connexions Airflow) — `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
+| `AIRFLOW_SECRET_KEY` | Clé secrète webserver — `python -c "import secrets; print(secrets.token_hex(32))"` |
+| `AIRFLOW_POSTGRES_PASSWORD` | Mot de passe PostgreSQL interne Airflow |
+| `DATA_POSTGRES_URL` | URL connexion data warehouse (`postgresql+psycopg2://etl_user:...@data-postgres/multimodal`) |
+
+### Sécurité
+
+- Utilisateur PostgreSQL dédié `etl_user` (permissions `INSERT, SELECT, UPDATE` uniquement, pas superuser)
+- Credentials dans `.env` uniquement (jamais dans le code)
+- Connexion PostgreSQL via `sslmode=require` en production
+- `AIRFLOW__CORE__FERNET_KEY` pour le chiffrement des connexions stockées dans Airflow
+
+### Idempotence
+
+Les 3 extracteurs qui généraient des UUID4 aléatoires (RSS, MMFakeBench, MiRAGeNews) utilisent
+désormais `uuid5(NAMESPACE_URL, source + url)` — IDs déterministes. Un re-run du DAG ajoute
+les nouveaux articles et ignore les existants (`ON CONFLICT (id) DO NOTHING`).
+
+---
+
 ## Stack
 
 - Python 3.12
 - `requests`, `feedparser`, `pandas`, `datasets`, `Pillow`, `pyarrow`, `tqdm`, `python-dotenv`
+- `sqlalchemy`, `psycopg2-binary`
 - `uv` pour la gestion des dépendances
+- Docker + Apache Airflow 2.9, PostgreSQL 16

@@ -99,7 +99,7 @@ class RSSExtractor(BaseExtractor):
             label = feed_label
 
         domain = urlparse(url).netloc if url else ""
-        entry_id = str(uuid.uuid4())
+        entry_id = str(uuid.uuid5(uuid.NAMESPACE_URL, f"rss:{url or title}"))
 
         return {
             "id": entry_id,
