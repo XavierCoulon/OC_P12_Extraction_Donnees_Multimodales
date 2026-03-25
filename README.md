@@ -104,11 +104,25 @@ Pipeline Python modulaire qui transforme les données brutes (JSONL) en un datas
 |-------|-------------|
 | Nettoyage texte | Suppression HTML, normalisation espaces, caractères de contrôle |
 | Normalisation date | RFC 822 / ISO 8601 / UNIX → ISO 8601 unifié |
-| Validation image | `image_valid: bool` — format et schéma URL vérifiés |
+| Validation image | `image_valid: bool` — voir tableau ci-dessous |
 | Association texte-image | `text_image_ok: bool` — texte ET image présents ensemble |
 | Mapping labels | `label_int: int` — real=1, fake=0, unknown=-1 |
 | Enrichissement | `text_length`, `word_count`, `has_image` |
 | Déduplication | Hash MD5 sur (source + texte[:200]), première occurrence conservée |
+
+### Validation des images par source
+
+La stratégie de validation dépend du type de stockage de chaque source :
+
+| Source | Champ image | Vérification format | Vérification accessibilité |
+|--------|------------|--------------------|-----------------------------|
+| **Fakeddit** | `image_url` | ✅ `is_valid_image_url()` — schéma HTTP(S) + extension | Optionnelle — HEAD request si `IMAGE_CHECK_ACCESSIBLE=true` |
+| **RSS** | `image_url` | ✅ `is_valid_image_url()` — schéma HTTP(S) + extension | Optionnelle — HEAD request si `IMAGE_CHECK_ACCESSIBLE=true` |
+| **MiRAGeNews** | `image_path` | ✅ Garanti par la sauvegarde PIL | ✅ `validate_image()` — vérification Pillow du fichier local |
+| **MMFakeBench** | `image_path` | N/A — référence interne HuggingFace | N/A — pas de fichier local accessible |
+| **MediaEval VMU** | `image_path` | N/A — identifiant local (ZIP non téléchargé) | N/A — images non téléchargées |
+
+**Variable d'environnement** : `IMAGE_CHECK_ACCESSIBLE=true` active les HEAD requests pour les sources URL (Fakeddit, RSS). Désactivé par défaut — trop coûteux pour Fakeddit (~1M records).
 
 ### Architecture
 
