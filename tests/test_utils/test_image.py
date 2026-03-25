@@ -3,7 +3,7 @@
 import pytest
 import responses as responses_lib
 
-from src.utils.image import download_image, validate_image
+from src.utils.image import check_image_accessible, download_image, validate_image
 
 
 IMAGE_URL = "https://example.com/photo.jpg"
@@ -68,3 +68,21 @@ def test_validate_image_invalid_file(tmp_path):
     path = tmp_path / "not_an_image.jpg"
     path.write_bytes(b"this is not an image")
     assert validate_image(path) is False
+
+
+@responses_lib.activate
+def test_check_image_accessible_200():
+    responses_lib.add(responses_lib.HEAD, IMAGE_URL, status=200)
+    assert check_image_accessible(IMAGE_URL) is True
+
+
+@responses_lib.activate
+def test_check_image_accessible_404():
+    responses_lib.add(responses_lib.HEAD, IMAGE_URL, status=404)
+    assert check_image_accessible(IMAGE_URL) is False
+
+
+@responses_lib.activate
+def test_check_image_accessible_connection_error():
+    responses_lib.add(responses_lib.HEAD, IMAGE_URL, body=Exception("timeout"))
+    assert check_image_accessible(IMAGE_URL) is False

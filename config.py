@@ -19,6 +19,13 @@ IMAGE_DOWNLOAD_TIMEOUT = 10       # secondes
 IMAGE_DOWNLOAD_RETRIES = 3        # tentatives max
 IMAGE_DOWNLOAD_BACKOFF = 2.0      # facteur de backoff exponentiel
 
+# Vérification d'accessibilité des URL d'images (HEAD request)
+# Désactivé par défaut : trop coûteux pour Fakeddit (~1M records).
+# Activer ponctuellement pour RSS ou en mode sampling.
+# Surcharger via variable d'environnement : IMAGE_CHECK_ACCESSIBLE=true
+import os as _os
+IMAGE_CHECK_ACCESSIBLE: bool = _os.getenv("IMAGE_CHECK_ACCESSIBLE", "false").lower() == "true"
+
 # Flux RSS (ajouter/supprimer une entrée pour modifier les sources)
 RSS_FEEDS = [
     {"url": "https://www.lemonde.fr/rss/une.xml",           "language": "fr", "label": "real"},

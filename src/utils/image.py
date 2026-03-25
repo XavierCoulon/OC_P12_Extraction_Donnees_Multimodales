@@ -91,6 +91,28 @@ def is_valid_image_url(url: str) -> bool:
     return True
 
 
+def check_image_accessible(url: str, timeout: int = 5) -> bool:
+    """Vérifie qu'une URL d'image est accessible via HTTP HEAD.
+
+    Fait une requête HEAD (sans télécharger le contenu) et vérifie
+    que le statut HTTP est 2xx.
+
+    Args:
+        url: URL à tester.
+        timeout: Délai maximum en secondes (défaut : 5).
+
+    Returns:
+        True si l'URL répond avec un statut 2xx, False sinon.
+    """
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; academic-research-bot/1.0)"}
+    try:
+        response = requests.head(url, timeout=timeout, headers=headers, allow_redirects=True)
+        return response.ok
+    except Exception as e:
+        logger.debug("Inaccessible : %s — %s", url, e)
+        return False
+
+
 def validate_image(path: Path) -> bool:
     """
     Vérifie qu'un fichier est une image valide et non corrompue via Pillow.
