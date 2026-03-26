@@ -54,6 +54,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
+      - ./docker/init-db.sql:/docker-entrypoint-initdb.d/init.sql
       - data-pgdata:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD", "pg_isready", "-U", "etl_user", "-d", "multimodal"]
