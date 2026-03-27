@@ -10,7 +10,17 @@ Prérequis :
 """
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+
+# Streamlit exécute app.py depuis n'importe quel répertoire courant.
+# On ajoute la racine du projet au path pour que les imports fonctionnent.
+_ROOT = Path(__file__).parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
+from dotenv import load_dotenv
+load_dotenv(_ROOT / ".env")
 
 import streamlit as st
 
@@ -99,11 +109,11 @@ st.header("Qualité des données")
 
 col_a, col_b = st.columns(2)
 with col_a:
-    st.altair_chart(charts.bar_image_valid(df_quality), use_container_width=True)
+    st.altair_chart(charts.bar_image_valid(df_quality), width="stretch")
 with col_b:
-    st.altair_chart(charts.bar_text_image_ok(df_quality), use_container_width=True)
+    st.altair_chart(charts.bar_text_image_ok(df_quality), width="stretch")
 
-st.altair_chart(charts.bar_label_distribution(df_labels), use_container_width=True)
+st.altair_chart(charts.bar_label_distribution(df_labels), width="stretch")
 
 with st.expander("Détail par source"):
     display_cols = ["source", "total", "image_valid_pct", "text_image_ok_pct", "has_image_pct", "avg_text_length", "avg_word_count"]
@@ -116,7 +126,7 @@ with st.expander("Détail par source"):
             "avg_word_count": "mots moy.",
         }),
         hide_index=True,
-        use_container_width=True,
+        width="stretch",
     )
 
 st.divider()
@@ -130,15 +140,15 @@ st.header("Performance d'extraction")
 if df_latest is not None and not df_latest.empty:
     col_c, col_d = st.columns(2)
     with col_c:
-        st.altair_chart(charts.bar_duration(df_latest), use_container_width=True)
+        st.altair_chart(charts.bar_duration(df_latest), width="stretch")
     with col_d:
-        st.altair_chart(charts.bar_error_rate(df_latest), use_container_width=True)
+        st.altair_chart(charts.bar_error_rate(df_latest), width="stretch")
 
     with st.expander("Données brutes — dernier run"):
         st.dataframe(
             df_latest[["task", "source", "total", "success", "skipped", "errors", "duration_s"]],
             hide_index=True,
-            use_container_width=True,
+            width="stretch",
         )
 else:
     st.info("Aucun run enregistré dans pipeline_runs. Lancez le DAG Airflow pour voir ces métriques.")
@@ -154,9 +164,9 @@ st.header("Historique multi-runs")
 if df_history is not None and not df_history.empty and df_history["run_id"].nunique() > 1:
     col_e, col_f = st.columns(2)
     with col_e:
-        st.altair_chart(charts.line_duration_history(df_history), use_container_width=True)
+        st.altair_chart(charts.line_duration_history(df_history), width="stretch")
     with col_f:
-        st.altair_chart(charts.line_errors_history(df_history), use_container_width=True)
+        st.altair_chart(charts.line_errors_history(df_history), width="stretch")
 
     nb_runs = df_history["run_id"].nunique()
     st.caption(f"{nb_runs} runs enregistrés.")
