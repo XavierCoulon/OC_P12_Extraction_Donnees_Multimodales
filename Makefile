@@ -25,6 +25,10 @@ help:
 	@echo "  make airflow-up               Démarrer Airflow + PostgreSQL (http://localhost:8080)"
 	@echo "  make airflow-down             Arrêter les containers"
 	@echo ""
+	@echo "  Dashboard KPI (étape 5)"
+	@echo "  make dashboard                Lancer le dashboard Streamlit (PostgreSQL requis)"
+	@echo "  make dashboard-setup          Créer la table pipeline_runs dans PostgreSQL existant"
+	@echo ""
 	@echo "  Qualité"
 	@echo "  make test                     Lancer les tests pytest"
 	@echo ""
@@ -73,6 +77,24 @@ airflow-up:
 airflow-down:
 	docker compose down
 
+# Dashboard KPI (étape 5)
+# Prérequis : data-postgres doit tourner (make airflow-up ou docker compose up data-postgres)
+dashboard:
+	uv run streamlit run dashboard/app.py
+
+# Crée la table pipeline_runs sur un container PostgreSQL déjà existant (volume non vide).
+# À lancer une seule fois si le container existait avant l'ajout de l'étape 5.
+dashboard-setup:
+	docker compose exec data-postgres psql -U etl_user -d multimodal -c "\
+CREATE TABLE IF NOT EXISTS pipeline_runs ( \
+    run_id TEXT, run_date TIMESTAMP, task TEXT, source TEXT, \
+    total INTEGER, success INTEGER, skipped INTEGER, errors INTEGER, \
+    duration_s FLOAT, parquet_rows INTEGER, parquet_mb FLOAT, \
+    PRIMARY KEY (run_id, task) \
+); \
+GRANT INSERT, SELECT ON pipeline_runs TO etl_user;"
+	@echo "✓ Table pipeline_runs prête."
+
 # Installation des dépendances
 install:
 	uv sync
@@ -81,5 +103,7 @@ install:
 test:
 	uv run pytest tests/ -v
 
-.PHONY: help extract transform verify install test airflow-keygen airflow-init airflow-up airflow-down
+.PHONY: help extract transform verify install test \
+        airflow-keygen airflow-init airflow-up airflow-down \
+        dashboard dashboard-setup
 .DEFAULT_GOAL := help

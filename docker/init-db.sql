@@ -25,6 +25,22 @@ CREATE TABLE IF NOT EXISTS articles (
     word_count        INTEGER
 );
 
+CREATE TABLE IF NOT EXISTS pipeline_runs (
+    run_id       TEXT,
+    run_date     TIMESTAMP,
+    task         TEXT,
+    source       TEXT,
+    total        INTEGER,
+    success      INTEGER,
+    skipped      INTEGER,
+    errors       INTEGER,
+    duration_s   FLOAT,
+    parquet_rows INTEGER,
+    parquet_mb   FLOAT,
+    PRIMARY KEY (run_id, task)
+);
+
 -- Permissions minimales : lecture + écriture sur articles uniquement
 GRANT CONNECT ON DATABASE multimodal TO etl_user;
 GRANT INSERT, SELECT, UPDATE ON articles TO etl_user;
+GRANT INSERT, SELECT ON pipeline_runs TO etl_user;

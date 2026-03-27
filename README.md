@@ -239,10 +239,102 @@ les nouveaux articles et ignore les existants (`ON CONFLICT (id) DO NOTHING`).
 
 ---
 
+---
+
+## Étape 5 — Évaluation et visualisation des performances
+
+**Livrable** : `dashboard/app.py` (Streamlit) + [`reports/monitoring_plan.md`](reports/monitoring_plan.md)
+
+Dashboard KPI interactif et plan de monitoring du pipeline.
+
+### Architecture
+
+```
+dashboard/
+  app.py            ← Application Streamlit (4 sections)
+  kpi.py            ← Requêtes SQL (articles + pipeline_runs)
+  charts.py         ← Visualisations Altair
+src/metrics/
+  exporter.py       ← INSERT INTO pipeline_runs (appelé par export_metrics)
+reports/
+  monitoring_plan.md ← Plan de monitoring (seuils, alertes, fréquences)
+```
+
+### DAG mis à jour
+
+```
+extract_rss ────────┐
+extract_fakeddit ───┤
+extract_mmfakebench ┼──► transform_data ──► load_to_postgres ──► export_metrics
+extract_miragenews ─┤
+extract_mediaeval ──┘
+```
+
+La tâche `export_metrics` collecte les XCom (compteurs + timings) de toutes les tâches et les insère dans la table PostgreSQL `pipeline_runs`.
+
+### Tables PostgreSQL
+
+| Table | Contenu |
+|-------|---------|
+| `articles` | Données transformées (19 colonnes) — KPIs qualité |
+| `pipeline_runs` | Métriques de run (durée, erreurs, volume) — KPIs performance |
+
+### Lancement du dashboard
+
+#### Prérequis
+
+- Docker Desktop démarré
+- `.env` contenant `DATA_POSTGRES_URL` (voir ci-dessous)
+- Avoir lancé au moins 1 run du DAG `etl_multimodal` (pour les métriques de performance)
+
+#### Étapes dans l'ordre
+
+```bash
+# 1. Ajouter DATA_POSTGRES_URL dans .env (une seule fois)
+#    Remplacer DATA_POSTGRES_PASSWORD par la valeur de votre .env
+echo "DATA_POSTGRES_URL=postgresql+psycopg2://etl_user:DATA_POSTGRES_PASSWORD@localhost/multimodal" >> .env
+
+# 2. Démarrer PostgreSQL (suffit pour le dashboard, pas besoin d'Airflow complet)
+docker compose up data-postgres -d
+
+# 3a. Si le container PostgreSQL est NOUVEAU (volume vide) → le schéma est créé automatiquement via init-db.sql
+# 3b. Si le container PostgreSQL EXISTAIT DÉJÀ avant l'étape 5 → créer pipeline_runs manuellement :
+make dashboard-setup
+
+# 4. Lancer le dashboard
+make dashboard
+# → http://localhost:8501
+```
+
+#### Pourquoi ces étapes ?
+
+| Étape | Raison |
+|-------|--------|
+| `DATA_POSTGRES_URL` dans `.env` | Streamlit charge `.env` au démarrage — sans ça, il bascule en mode fallback Parquet |
+| `docker compose up data-postgres` | Le dashboard lit `articles` et `pipeline_runs` via localhost:5432 |
+| `make dashboard-setup` | PostgreSQL ne rejoue jamais `init-db.sql` si le volume de données existe déjà |
+| `make dashboard` | Lance `streamlit run dashboard/app.py` avec l'environnement uv |
+
+**Fallback automatique** : si PostgreSQL est indisponible, le dashboard lit `data/processed/transformed.parquet` (KPIs qualité uniquement, sans historique de runs).
+
+### KPIs disponibles
+
+| Dimension | KPI | Source SQL |
+|-----------|-----|-----------|
+| **Précision** | % images valides par source | `articles` |
+| **Précision** | % associations texte+image par source | `articles` |
+| **Précision** | Distribution labels real/fake/unknown | `articles` |
+| **Rapidité** | Durée par tâche Airflow (s) | `pipeline_runs` |
+| **Rapidité** | Durée totale pipeline (s) | `pipeline_runs` |
+| **Coût** | Volume articles par source | `pipeline_runs` |
+| **Coût** | Taille Parquet final (MB) | `pipeline_runs` |
+
+---
+
 ## Stack
 
 - Python 3.12
 - `requests`, `feedparser`, `pandas`, `datasets`, `Pillow`, `pyarrow`, `tqdm`, `python-dotenv`
-- `sqlalchemy`, `psycopg2-binary`
+- `sqlalchemy`, `psycopg2-binary`, `streamlit`, `altair`
 - `uv` pour la gestion des dépendances
 - Docker + Apache Airflow 2.9, PostgreSQL 16
