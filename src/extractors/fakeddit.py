@@ -6,15 +6,16 @@ et les placer dans data/raw/fakeddit/ avant d'exécuter ce script.
 
 import uuid
 from pathlib import Path
-from typing import Iterator
+from typing import Iterator, Literal
 
 import pandas as pd
 
 from config import FAKEDDIT_RAW_DIR
 from src.extractors.base import BaseExtractor
+from src.extractors.types import ArticleRecord
 from src.utils.image import is_valid_image_url
 
-_LABEL_MAP = {0: "fake", 1: "real"}
+_LABEL_MAP: dict[int, Literal["real", "fake", "unknown"]] = {0: "fake", 1: "real"}
 
 
 class FakedditExtractor(BaseExtractor):
@@ -40,7 +41,7 @@ class FakedditExtractor(BaseExtractor):
             except Exception as e:
                 self.logger.warning("Erreur lecture %s : %s", csv_path.name, e)
 
-    def normalize(self, raw: dict) -> dict | None:
+    def normalize(self, raw: dict) -> ArticleRecord | None:
         # Champs obligatoires
         image_url = raw.get("image_url", "")
         text = str(raw.get("title", "")).strip()

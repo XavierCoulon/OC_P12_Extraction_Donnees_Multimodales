@@ -2,10 +2,10 @@
 
 import json
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator, Sequence
 
 
-def write_jsonl(records: list[dict], path: Path) -> int:
+def write_jsonl(records: Sequence[dict[str, Any]], path: Path) -> int:
     """Écrit une liste de dicts en JSON Lines. Retourne le nombre d'entrées écrites."""
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)

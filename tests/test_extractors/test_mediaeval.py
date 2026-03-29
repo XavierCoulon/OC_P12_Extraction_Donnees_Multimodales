@@ -7,6 +7,9 @@ Format TSV réel (MKLab-ITI/image-verification-corpus) :
 import pytest
 
 from src.extractors.mediaeval import MediaEvalExtractor
+from src.extractors.types import ArticleRecord
+
+_ARTICLE_KEYS = set(ArticleRecord.__annotations__.keys())
 
 
 def _make_raw(
@@ -80,10 +83,8 @@ def test_normalize_output_schema():
     result = extractor.normalize(raw)
 
     assert result is not None
-    expected_keys = {"id", "source", "title", "text", "image_url", "image_path",
-                     "label", "label_confidence", "language", "date", "url", "domain",
-                     "extraction_method"}
-    assert expected_keys.issubset(result.keys())
+    assert set(result.keys()) == _ARTICLE_KEYS
     assert result["source"] == "mediaeval"
     assert result["domain"] == "twitter.com"
     assert result["image_path"] == "airstrikes_1"
+    assert result["label"] in {"real", "fake", "unknown"}

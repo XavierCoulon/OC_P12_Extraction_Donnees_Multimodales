@@ -19,12 +19,13 @@ Note : les images sont dans Mediaeval2016_TestSet_Images.zip (non téléchargé)
 import csv
 import io
 import uuid
-from typing import Iterator
+from typing import Iterator, Literal
 
 import requests
 
 from config import RAW_DIR
 from src.extractors.base import BaseExtractor
+from src.extractors.types import ArticleRecord
 
 _TESTSET_URL = (
     "https://raw.githubusercontent.com/MKLab-ITI/image-verification-corpus"
@@ -33,10 +34,10 @@ _TESTSET_URL = (
 _RAW_DIR = RAW_DIR / "mediaeval"
 _CACHE_FILE = _RAW_DIR / "mediaeval2016_testset_groundtruth.txt"
 
-_LABEL_MAP = {
-    "real":           "real",
-    "fake":           "fake",
-    "humor":          "fake",
+_LABEL_MAP: dict[str, Literal["real", "fake", "unknown"]] = {
+    "real": "real",
+    "fake": "fake",
+    "humor": "fake",
     "non-verifiable": "unknown",
 }
 
@@ -70,13 +71,13 @@ class MediaEvalExtractor(BaseExtractor):
         self.logger.info("%d entrées dans le testset", len(rows))
         yield from rows
 
-    def normalize(self, raw: dict) -> dict | None:
+    def normalize(self, raw: dict) -> ArticleRecord | None:
         text = str(raw.get("post_text") or "").strip()
         if not text:
             return None
 
-        post_id   = str(raw.get("post_id") or "").strip()
-        image_id  = str(raw.get("image_id") or "").strip()
+        post_id = str(raw.get("post_id") or "").strip()
+        image_id = str(raw.get("image_id") or "").strip()
         timestamp = str(raw.get("timestamp") or "").strip()
         label_raw = str(raw.get("label") or "").lower().strip()
 
@@ -90,7 +91,7 @@ class MediaEvalExtractor(BaseExtractor):
             "title": "",
             "text": text,
             "image_url": "",
-            "image_path": image_id,   # identifiant local (ex: "airstrikes_1")
+            "image_path": image_id,  # identifiant local (ex: "airstrikes_1")
             "label": label,
             "label_confidence": "high",
             "language": "en",

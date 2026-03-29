@@ -1,17 +1,18 @@
 """Extracteur RSS — flux publics de sources fiables."""
 
 import uuid
-from typing import Iterator
+from typing import Iterator, Literal
 from urllib.parse import urlparse
 
 import feedparser
 
 from config import RSS_FEEDS
 from src.extractors.base import BaseExtractor
+from src.extractors.types import ArticleRecord
 from src.utils.image import is_valid_image_url
 
 # Préfixes Snopes pour parser le label depuis le titre
-_SNOPES_LABEL_MAP = {
+_SNOPES_LABEL_MAP: dict[str, Literal["real", "fake", "unknown"]] = {
     "true:": "real",
     "false:": "fake",
     "mostly true:": "real",
@@ -25,7 +26,7 @@ _SNOPES_LABEL_MAP = {
 }
 
 
-def _parse_snopes_label(title: str) -> str:
+def _parse_snopes_label(title: str) -> Literal["real", "fake", "unknown"]:
     """Extrait le label depuis un titre Snopes. Retourne 'unknown' si non reconnu."""
     lower = title.lower()
     for prefix, label in _SNOPES_LABEL_MAP.items():
@@ -80,7 +81,7 @@ class RSSExtractor(BaseExtractor):
             except Exception as e:
                 self.logger.warning("Erreur lecture flux %s : %s", url, e)
 
-    def normalize(self, raw: dict) -> dict | None:
+    def normalize(self, raw: dict) -> ArticleRecord | None:
         feed_config = raw.get("_feed_config", {})
         title = raw.get("title", "").strip()
         text = raw.get("summary", "").strip()

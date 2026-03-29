@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Iterator
 
 from src.extractors.base import BaseExtractor
+from src.extractors.types import ArticleRecord, ExtractionCounters
 from src.utils.io import read_jsonl
 
 
@@ -21,14 +22,28 @@ class _FakeExtractor(BaseExtractor):
     def extract(self) -> Iterator[dict]:
         yield from self._raw_items
 
-    def normalize(self, raw: dict) -> dict | None:
+    def normalize(self, raw: dict) -> ArticleRecord | None:
         if self._normalize_fn is not None:
             return self._normalize_fn(raw)
-        return raw
+        return raw  # type: ignore[return-value]
 
 
-def _valid_record(i: int) -> dict:
-    return {"id": str(i), "text": f"text {i}", "label": "real"}
+def _valid_record(i: int) -> ArticleRecord:
+    return {
+        "id": str(i),
+        "source": "test",
+        "title": f"title {i}",
+        "text": f"text {i}",
+        "image_url": "",
+        "image_path": "",
+        "label": "real",
+        "label_confidence": "high",
+        "language": "en",
+        "date": "",
+        "url": "",
+        "domain": "",
+        "extraction_method": "dataset",
+    }
 
 
 def test_run_all_valid(tmp_path):
@@ -118,4 +133,12 @@ def test_run_returns_dict_with_all_keys(tmp_path):
     extractor = _FakeExtractor([])
     output = tmp_path / "out.jsonl"
     counters = extractor.run(output)
-    assert set(counters.keys()) == {"total", "success", "skipped", "errors"}
+    assert set(counters.keys()) == set(ExtractionCounters.__annotations__.keys())
+
+
+def test_run_counters_are_int(tmp_path):
+    items = [_valid_record(i) for i in range(3)]
+    extractor = _FakeExtractor(items)
+    counters = extractor.run(tmp_path / "out.jsonl")
+    for key, value in counters.items():
+        assert isinstance(value, int), f"compteur '{key}' doit être int"
