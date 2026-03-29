@@ -2,8 +2,9 @@
 
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator, cast
 
+from src.extractors.types import ArticleRecord, ExtractionCounters
 from src.utils.io import write_jsonl
 from src.utils.logger import get_logger
 
@@ -26,7 +27,7 @@ class BaseExtractor(ABC):
         """Lit la source brute et yield chaque enregistrement brut."""
 
     @abstractmethod
-    def normalize(self, raw: dict) -> dict | None:
+    def normalize(self, raw: dict) -> ArticleRecord | None:
         """
         Convertit un enregistrement brut vers le schéma unifié.
 
@@ -34,15 +35,20 @@ class BaseExtractor(ABC):
         label invalide, image inaccessible…).
         """
 
-    def run(self, output_path: Path, limit: int | None = None) -> dict:
+    def run(self, output_path: Path, limit: int | None = None) -> ExtractionCounters:
         """
         Orchestre extract → normalize → save.
 
         Retourne un dict de compteurs : total, success, skipped, errors.
         """
         output_path = Path(output_path)
-        records: list[dict] = []
-        counters = {"total": 0, "success": 0, "skipped": 0, "errors": 0}
+        records: list[ArticleRecord] = []
+        counters: ExtractionCounters = {
+            "total": 0,
+            "success": 0,
+            "skipped": 0,
+            "errors": 0,
+        }
 
         self.logger.info("Démarrage extraction [%s]", self.source_name)
 
@@ -60,9 +66,11 @@ class BaseExtractor(ABC):
                     counters["success"] += 1
             except Exception as e:
                 counters["errors"] += 1
-                self.logger.debug("Erreur normalisation entrée #%d : %s", counters["total"], e)
+                self.logger.debug(
+                    "Erreur normalisation entrée #%d : %s", counters["total"], e
+                )
 
-        written = write_jsonl(records, output_path)
+        written = write_jsonl(cast(list[dict[str, Any]], records), output_path)
         self.logger.info(
             "[%s] Terminé — total=%d success=%d skipped=%d errors=%d → %s (%d lignes)",
             self.source_name,

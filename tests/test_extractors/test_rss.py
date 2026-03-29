@@ -3,6 +3,9 @@
 import pytest
 
 from src.extractors.rss import RSSExtractor, _parse_snopes_label, _extract_image_url
+from src.extractors.types import ArticleRecord
+
+_ARTICLE_KEYS = set(ArticleRecord.__annotations__.keys())
 
 
 # --- _parse_snopes_label ---
@@ -97,12 +100,14 @@ def test_rss_normalize_valid_entry():
     result = extractor.normalize(raw)
 
     assert result is not None
+    assert set(result.keys()) == _ARTICLE_KEYS
     assert result["label"] == "real"
     assert result["text"] == "Sample article text"
     assert result["source"] == "rss"
     assert result["extraction_method"] == "rss"
     assert result["language"] == "en"
     assert result["image_path"] == ""
+    assert result["label"] in {"real", "fake", "unknown"}
 
 
 def test_rss_normalize_snopes_auto_label():

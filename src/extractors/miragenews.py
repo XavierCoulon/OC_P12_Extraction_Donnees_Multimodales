@@ -23,6 +23,7 @@ from typing import Iterator
 
 from config import IMAGES_DIR
 from src.extractors.base import BaseExtractor
+from src.extractors.types import ArticleRecord
 
 _DATASET_ID = "anson-huang/mirage-news"
 _IMAGES_DIR = IMAGES_DIR / "miragenews"
@@ -58,14 +59,16 @@ class MiRAGeNewsExtractor(BaseExtractor):
                     trust_remote_code=False,
                 )
             except Exception as e:
-                self.logger.warning("Impossible de charger le split '%s' : %s", split_name, e)
+                self.logger.warning(
+                    "Impossible de charger le split '%s' : %s", split_name, e
+                )
                 continue
 
             self.logger.info("Split '%s' : %d entrées", split_name, len(split))
             for row in split:
-                yield {"_split": split_name, **row}
+                yield {"_split": split_name, **dict(row)}
 
-    def normalize(self, raw: dict) -> dict | None:
+    def normalize(self, raw: dict) -> ArticleRecord | None:
         text = str(raw.get("text") or "").strip()
         if not text:
             return None

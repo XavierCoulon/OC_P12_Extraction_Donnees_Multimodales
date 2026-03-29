@@ -14,19 +14,20 @@ interne accessible via load_dataset() au moment de l'entraînement.
 
 import os
 import uuid
-from typing import Iterator
+from typing import Iterator, Literal
 
 from dotenv import load_dotenv
 
 from config import MMFAKEBENCH_DATASET_ID
 from src.extractors.base import BaseExtractor
+from src.extractors.types import ArticleRecord
 from src.utils.image import is_valid_image_url
 
 load_dotenv()
 
 # gt_answers : "True" = contenu authentique, "Fake" = contenu manipulé
 # (valeurs réelles observées dans le dataset, pas "False")
-_LABEL_MAP = {"True": "real", "Fake": "fake", "False": "fake"}
+_LABEL_MAP: dict[str, Literal["real", "fake", "unknown"]] = {"True": "real", "Fake": "fake", "False": "fake"}
 
 
 class MMFakeBenchExtractor(BaseExtractor):
@@ -60,7 +61,7 @@ class MMFakeBenchExtractor(BaseExtractor):
                 self.logger.info("Config '%s' / split '%s' : %d entrées", config_name, split_name, len(split))
                 yield from (dict(row) for row in split)
 
-    def normalize(self, raw: dict) -> dict | None:
+    def normalize(self, raw: dict) -> ArticleRecord | None:
         text = str(raw.get("text") or "").strip()
         if not text:
             return None
