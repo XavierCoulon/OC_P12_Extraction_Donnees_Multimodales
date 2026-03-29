@@ -102,21 +102,21 @@ classDiagram
 ## Pipeline de transformation
 
 ```mermaid
-flowchart LR
-    A["📄 JSONL bruts\ndata/processed/<source>.jsonl"] --> B
+flowchart TB
+    A["📄 JSONL bruts<br/>data/processed/&lt;source&gt;.jsonl<br/>5 fichiers · 1 ligne = 1 ArticleRecord"] --> B
 
     subgraph B["Pipeline de transformation"]
-        direction TB
-        B1["🧹 Nettoyage texte\nstrip HTML · espaces · ctrl chars"] -->
-        B2["📅 Normalisation date\nRFC 822 · ISO 8601 · UNIX → ISO 8601"] -->
-        B3["🖼️ Validation image\nimage_valid : bool"] -->
-        B4["🔗 Association texte-image\ntext_image_ok : bool"] -->
-        B5["🏷️ Mapping labels\nlabel_int : real=1, fake=0, unknown=-1"] -->
-        B6["📊 Enrichissement\ntext_length · word_count · has_image"]
+        direction LR
+        B1["🧹 clean_text — Suppression HTML · espaces · ctrl chars → title, text nettoyés"] -->
+        B2["📅 normalize_date — RFC 822 · ISO 8601 · UNIX timestamp → YYYY-MM-DDTHH:MM:SS"] -->
+        B5["🏷️ map_labels — Convergence labels par source → label · label_int · label_confidence"] -->
+        B3["🖼️ validate_image — Format URL + HEAD optionnel · Pillow (local) → image_valid : bool"] -->
+        B4["🔗 check_association — Cohérence texte + image valide → text_image_ok : bool"] -->
+        B6["📊 enrich — text_length · word_count · has_image → 5 champs calculés"]
     end
 
-    B --> C["🔁 Déduplication\nhash(source + text[:200])"]
-    C --> D["📦 Export Parquet\ndata/processed/transformed.parquet"]
+    B --> C["🔁 Déduplication<br/>Suppression doublons sur id<br/>IDs préfixés par source → pas de collision inter-sources"]
+    C --> D["📦 Export Parquet<br/>data/processed/transformed.parquet<br/>19 colonnes · toutes sources fusionnées"]
 ```
 
 ---
