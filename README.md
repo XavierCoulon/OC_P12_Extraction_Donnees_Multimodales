@@ -317,6 +317,22 @@ make dashboard
 
 **Fallback automatique** : si PostgreSQL est indisponible, le dashboard lit `data/processed/transformed.parquet` (KPIs qualité uniquement, sans historique de runs).
 
+### Exploration visuelle des articles (`notebooks/01_sample_articles.ipynb`)
+
+Notebook Jupyter pour visualiser un exemple d'article (texte + image) par source.
+
+```bash
+uv run jupyter notebook notebooks/01_sample_articles.ipynb
+```
+
+| Source | Image disponible |
+|--------|-----------------|
+| **Fakeddit** | ✅ URL publique (Imgur) |
+| **MirageNews** | ✅ Fichier local (`data/images/miragenews/`) |
+| **RSS** | ✅ URL publique |
+| **MMFakeBench** | ❌ Images dans un ZIP HuggingFace non extrait (~646 MB) |
+| **MediaEval** | ❌ Tweets de 2016 — images non redistribuées par le dataset |
+
 ### KPIs disponibles
 
 | Dimension | KPI | Source SQL |
