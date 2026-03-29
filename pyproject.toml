@@ -29,6 +29,10 @@ dev = [
 
 [dependency-groups]
 dev = [
+    "ipykernel>=7.2.0",
+    "jupyter>=1.1.1",
+    "matplotlib>=3.10.8",
+    "pillow>=12.1.1",
     "pytest>=9.0.2",
     "pytest-mock>=3.15.1",
     "responses>=0.26.0",
