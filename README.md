@@ -180,21 +180,22 @@ src/load/
 ```
 extract_rss ────────┐
 extract_fakeddit ───┤
-extract_mmfakebench ┼──► transform_data ──► load_to_postgres
+extract_mmfakebench ┼──► transform_data ──► load_to_postgres ──► export_metrics
 extract_miragenews ─┤
 extract_mediaeval ──┘
 ```
 
-Toutes les tâches extract sont parallèles. Le DAG est déclenché manuellement depuis l'UI.
+Toutes les tâches extract sont parallèles. `export_metrics` enregistre les KPI du run dans la table `pipeline_runs` (durée, volumes, taux d'erreur). Le DAG est déclenché manuellement depuis l'UI.
 
 ### Démarrage
 
 **Prérequis** : Docker Desktop installé et démarré.
 
 ```bash
-# 1. Renseigner les 3 variables du .env
+# 1. Copier et renseigner le .env
 cp .env.example .env
-# Éditer HF_TOKEN, AIRFLOW_POSTGRES_PASSWORD, DATA_POSTGRES_PASSWORD
+# Éditer : HF_TOKEN, AIRFLOW_POSTGRES_PASSWORD, DATA_POSTGRES_PASSWORD
+# Optionnel : MAILJET_* pour les alertes email (voir ci-dessous)
 
 # 2. Générer les clés crypto (une seule fois)
 make airflow-keygen
@@ -214,15 +215,30 @@ make airflow-down
 
 ### Variables d'environnement (`.env`)
 
-Seules 3 variables sont à renseigner manuellement :
+| Variable | Obligatoire | Description |
+|----------|-------------|-------------|
+| `HF_TOKEN` | ✅ | Token HuggingFace (requis pour MMFakeBench et MirageNews) |
+| `AIRFLOW_POSTGRES_PASSWORD` | ✅ | Mot de passe PostgreSQL interne Airflow |
+| `DATA_POSTGRES_PASSWORD` | ✅ | Mot de passe du data warehouse ETL |
+| `DATA_POSTGRES_URL` | ✅ | URL de connexion au data warehouse (dashboard + exporter) |
+| `MAILJET_API_KEY` | ⬜ | Clé API Mailjet (alertes email sur échec) |
+| `MAILJET_SECRET_KEY` | ⬜ | Clé secrète Mailjet |
+| `MAILJET_SENDER_EMAIL` | ⬜ | Expéditeur vérifié sur Mailjet |
+| `AIRFLOW_ALERT_EMAIL` | ⬜ | Destinataire des alertes email |
 
-| Variable | Description |
-|----------|-------------|
-| `HF_TOKEN` | Token HuggingFace (requis pour MMFakeBench) |
-| `AIRFLOW_POSTGRES_PASSWORD` | Mot de passe PostgreSQL interne Airflow |
-| `DATA_POSTGRES_PASSWORD` | Mot de passe du data warehouse ETL |
+Les clés crypto (`AIRFLOW__CORE__FERNET_KEY`, `AIRFLOW_SECRET_KEY`) sont générées automatiquement par `make airflow-keygen`.
 
-Les clés crypto (`AIRFLOW__CORE__FERNET_KEY`, `AIRFLOW_SECRET_KEY`) sont générées et ajoutées automatiquement dans `.env` par `make airflow-keygen`.
+### Alertes email (Mailjet)
+
+En cas d'échec d'une tâche du DAG, Airflow peut envoyer un email automatiquement via Mailjet (6 000 emails/mois gratuits).
+
+**Configuration :**
+1. Créer un compte sur [app.mailjet.com](https://app.mailjet.com/account/smtp)
+2. Récupérer l'API Key et la Secret Key depuis *SMTP Settings*
+3. Renseigner les 4 variables `MAILJET_*` et `AIRFLOW_ALERT_EMAIL` dans `.env`
+4. Relancer : `make airflow-down && make airflow-up`
+
+> Sans ces variables, le pipeline fonctionne normalement — les alertes email sont simplement désactivées.
 
 ### Sécurité
 

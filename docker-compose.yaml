@@ -20,6 +20,13 @@ x-airflow-common: &airflow-common
     PYTHONPATH: /opt/airflow
     DATA_POSTGRES_URL: postgresql+psycopg2://etl_user:${DATA_POSTGRES_PASSWORD}@data-postgres/multimodal
     HF_TOKEN: ${HF_TOKEN}
+    AIRFLOW__SMTP__SMTP_HOST: in-v3.mailjet.com
+    AIRFLOW__SMTP__SMTP_PORT: "587"
+    AIRFLOW__SMTP__SMTP_USER: ${MAILJET_API_KEY}
+    AIRFLOW__SMTP__SMTP_PASSWORD: ${MAILJET_SECRET_KEY}
+    AIRFLOW__SMTP__SMTP_MAIL_FROM: ${MAILJET_SENDER_EMAIL}
+    AIRFLOW__SMTP__SMTP_SSL: "False"
+    AIRFLOW__SMTP__SMTP_STARTTLS: "True"
   volumes:
     - ./dags:/opt/airflow/dags
     - ./src:/opt/airflow/src

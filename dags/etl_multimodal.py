@@ -12,8 +12,10 @@ Chaque tâche d'extraction appelle directement l'extracteur correspondant
 réutilise run_pipeline() de l'étape 3. La tâche export_metrics insère les
 statistiques de run dans la table pipeline_runs (étape 5).
 """
+
 from __future__ import annotations
 
+import os
 import time
 from datetime import datetime
 
@@ -24,9 +26,11 @@ from airflow.operators.python import PythonOperator
 # Callables des tâches
 # ---------------------------------------------------------------------------
 
+
 def _extract_source(source_name: str, **context) -> dict:
     """Extrait une source et retourne les stats via XCom."""
     import sys
+
     sys.path.insert(0, "/opt/airflow")
 
     from main import EXTRACTORS
@@ -45,8 +49,8 @@ def _extract_source(source_name: str, **context) -> dict:
     # Limites spécifiques au DAG : on plafonne les sources volumineuses
     # pour garder un run ETL < 10 min (l'extraction complète se fait via make extract)
     DAG_LIMITS: dict[str, int | None] = {
-        "miragenews": 500,   # ~15 000 entrées → trop long via Docker volume
-        "fakeddit":   2_000,
+        "miragenews": 500,  # ~15 000 entrées → trop long via Docker volume
+        "fakeddit": 2_000,
     }
     default_limit = DEFAULT_LIMITS.get(source_name)
     limit = DAG_LIMITS.get(source_name, default_limit)
@@ -60,6 +64,7 @@ def _extract_source(source_name: str, **context) -> dict:
 def _transform(**context) -> dict:
     """Transforme tous les JSONL extraits → Parquet."""
     import sys
+
     sys.path.insert(0, "/opt/airflow")
 
     from src.transform.pipeline import run_pipeline
@@ -73,6 +78,7 @@ def _transform(**context) -> dict:
 def _load(**context) -> dict:
     """Charge le Parquet transformé dans PostgreSQL."""
     import sys
+
     sys.path.insert(0, "/opt/airflow")
 
     from src.load.postgres_loader import load_parquet_to_postgres
@@ -86,6 +92,7 @@ def _load(**context) -> dict:
 def _export_metrics(**context) -> None:
     """Collecte les XCom de toutes les tâches et insère dans pipeline_runs."""
     import sys
+
     sys.path.insert(0, "/opt/airflow")
 
     from src.metrics.exporter import insert_run_metrics
@@ -121,11 +128,17 @@ def _export_metrics(**context) -> None:
 with DAG(
     dag_id="etl_multimodal",
     description="ETL multimodal : extraction → transformation → chargement PostgreSQL → métriques",
-    schedule=None,           # Déclenchement manuel depuis l'UI
+    schedule=None,  # Déclenchement manuel depuis l'UI
     start_date=datetime(2025, 1, 1),
     catchup=False,
     tags=["etl", "multimodal"],
-    default_args={"retries": 1},
+    default_args={
+        "retries": 1,
+        "retry_delay": 30,  # 30s pour la démo
+        "email": [os.environ.get("AIRFLOW_ALERT_EMAIL", "")],
+        "email_on_failure": True,
+        "email_on_retry": False,
+    },
 ) as dag:
 
     sources = ["rss", "fakeddit", "mmfakebench", "miragenews", "mediaeval"]
