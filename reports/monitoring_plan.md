@@ -8,7 +8,9 @@ Le pipeline extrait des données depuis 5 sources (RSS, Fakeddit, MMFakeBench, M
 
 ---
 
-## 2. Indicateurs clés (KPIs)
+## 2. Indicateurs clés (KPIs) — ✅ Implémenté
+
+Les KPIs sont calculés à chaque run et stockés dans `pipeline_runs` (table PostgreSQL). Ils sont visualisés dans le dashboard Streamlit (`dashboard/app.py`).
 
 ### 2.1 Précision des données
 
@@ -37,7 +39,9 @@ Le pipeline extrait des données depuis 5 sources (RSS, Fakeddit, MMFakeBench, M
 
 ---
 
-## 3. Seuils d'alerte
+## 3. Seuils d'alerte — ⚠️ Définis, non automatisés
+
+Les seuils ci-dessous sont documentés et visibles dans le dashboard, mais ne déclenchent pas encore d'alerte automatique. En production, ils seraient connectés à un outil comme Grafana Alerts ou Great Expectations.
 
 | Indicateur | Seuil WARNING | Seuil CRITICAL | Action |
 |------------|--------------|----------------|--------|
@@ -52,15 +56,15 @@ Le pipeline extrait des données depuis 5 sources (RSS, Fakeddit, MMFakeBench, M
 
 ---
 
-## 4. Fréquence de vérification
+## 4. Fréquence de vérification — ✅ Implémenté (partiel)
 
-| Vérification | Fréquence | Méthode |
-|-------------|-----------|---------|
-| Run complet pipeline | Quotidien (ex. 02:00 UTC) | Airflow schedule |
-| Dashboard KPI | À la demande | Streamlit (`streamlit run dashboard/app.py`) |
-| Logs d'extraction | Après chaque run | `logs/extraction.log` |
-| Santé PostgreSQL | Toutes les 10s | Docker healthcheck (`pg_isready`) |
-| Disponibilité flux RSS | À chaque run | RSSExtractor (timeout 30s) |
+| Vérification | Fréquence | Méthode | Statut |
+|-------------|-----------|---------|--------|
+| Run complet pipeline | Manuel (démo) / Quotidien en prod | Airflow schedule | ⚠️ `schedule=None` — à activer |
+| Dashboard KPI | À la demande | Streamlit (`make dashboard`) | ✅ |
+| Logs d'extraction | Après chaque run | `logs/extraction.log` | ✅ |
+| Santé PostgreSQL | Toutes les 10s | Docker healthcheck (`pg_isready`) | ✅ |
+| Disponibilité flux RSS | À chaque run | RSSExtractor (timeout 30s) | ✅ |
 
 Pour planifier le DAG quotidiennement, modifier `schedule=None` en :
 ```python
@@ -69,50 +73,35 @@ schedule="0 2 * * *"  # 02:00 UTC chaque jour
 
 ---
 
-## 5. Alertes Airflow
+## 5. Alertes Airflow — ✅ Implémenté
 
-### 5.1 Callback en cas d'échec de tâche
+### 5.1 Email via Mailjet
 
-Ajouter dans les `default_args` du DAG :
+Le système d'alerte email est **entièrement configuré et testé**. Airflow envoie automatiquement un email sur échec de tâche, après épuisement des retries, via le fournisseur SMTP Mailjet.
 
-```python
-from airflow.utils.email import send_email
+- Transport SMTP configuré dans `docker-compose.yaml`
+- Destinataire configuré via variable d'environnement dans `.env`
+- DAG : `email_on_failure=True`, `retries=1`, `retry_delay=30s`
 
-def _on_failure(context):
-    send_email(
-        to=["admin@example.com"],
-        subject=f"[ALERTE] Tâche échouée : {context['task_instance'].task_id}",
-        html_content=f"Run : {context['dag_run'].run_id}<br>"
-                     f"Tâche : {context['task_instance'].task_id}<br>"
-                     f"Erreur : {context['exception']}",
-    )
+> En production, `retry_delay` serait porté à 5 minutes.
 
-default_args = {
-    "retries": 1,
-    "retry_delay": timedelta(minutes=5),
-    "on_failure_callback": _on_failure,
-}
-```
-
-### 5.2 SLA (Service Level Agreement)
+### 5.2 SLA (Service Level Agreement) — ⚠️ Must have en production
 
 ```python
-from datetime import timedelta
-
 with DAG(
     ...,
-    dagrun_timeout=timedelta(minutes=30),  # CRITICAL si dépassé
+    dagrun_timeout=timedelta(minutes=30),  # alerte si dépassé
 ) as dag:
     ...
 ```
 
 ---
 
-## 6. Gestion des erreurs
+## 6. Gestion des erreurs — ✅ Implémenté
 
 ### 6.1 Stratégie de retry
 
-- Chaque tâche Airflow : `retries=1` avec `retry_delay=5 min`
+- Chaque tâche Airflow : `retries=1` avec `retry_delay=30s` (démo) / `5 min` (prod)
 - Extraction images MiRAGeNews : `IMAGE_DOWNLOAD_RETRIES=3` (backoff exponentiel)
 - Chargement PostgreSQL : idempotent (`ON CONFLICT DO NOTHING`) — safe à rejouer
 
@@ -138,14 +127,10 @@ airflow dags backfill etl_multimodal --start-date 2026-03-25
 
 ---
 
-## 7. Rotation des logs
+## 7. Rotation des logs — ⚠️ Must have en production
 
-- **Fichier** : `logs/extraction.log`
-- **Taille max recommandée** : 100 MB (ajouter `maxBytes` dans `RotatingFileHandler`)
-- **Rétention** : 30 jours
-- **Archivage** : compresser les logs > 7 jours (`gzip logs/extraction.log.1`)
+Actuellement les logs sont écrits dans `logs/extraction.log` sans rotation. En production, ajouter un `RotatingFileHandler` :
 
-Configuration recommandée dans `src/utils/logger.py` :
 ```python
 from logging.handlers import RotatingFileHandler
 
@@ -154,9 +139,15 @@ handler = RotatingFileHandler(
 )
 ```
 
+- **Taille max recommandée** : 100 MB par fichier
+- **Rétention** : 30 jours
+- **Archivage** : compresser les logs > 7 jours (`gzip logs/extraction.log.1`)
+
 ---
 
-## 8. Accord sur les niveaux de service (SLA)
+## 8. Accord sur les niveaux de service (SLA) — ⚠️ Référentiel cible
+
+Objectifs définis pour un contexte de production. Non enforced automatiquement dans l'implémentation actuelle.
 
 | Métrique | Objectif |
 |---------|---------|
